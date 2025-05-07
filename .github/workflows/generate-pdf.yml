@@ -6,6 +6,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v3
 
@@ -13,9 +14,10 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
+          cache: 'npm'          # ← 依存キャッシュ
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci             # npm install より再現性が高い
 
       - name: Build PDF
         run: node build.js
@@ -25,3 +27,12 @@ jobs:
         with:
           name: booklet
           path: booklet.pdf
+          retention-days: 14    # ← 任意。無指定なら 90 日
+
+      - name: Notify WordPress with Run ID
+        env:
+          WEBHOOK: ${{ secrets.WP_WEBHOOK_URL }}
+        run: |
+          curl -X POST "$WEBHOOK" \
+          -H "Content-Type: application/json" \
+          -d "{\"run_id\": \"${{ github.run_id }}\"}"
