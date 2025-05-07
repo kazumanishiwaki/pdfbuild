@@ -1,0 +1,29 @@
+name: Generate PDF
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: ./pdfBuild
+
+      - name: Build PDF
+        run: node build.js
+        working-directory: ./pdfBuild
+
+      - name: Upload PDF
+        uses: actions/upload-artifact@v3
+        with:
+          name: booklet
+          path: pdfBuild/booklet.pdf 
