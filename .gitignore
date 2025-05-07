@@ -1,0 +1,20 @@
+# PDF生成物
+booklet.pdf
+booklet_*.pdf
+booklet_latest.pdf
+
+# ビルド生成物
+index.html
+dist/
+
+# 環境依存ファイル
+.env
+.env.*
+.DS_Store
+node_modules/
+
+# ロックファイル（必要に応じて）
+package-lock.json
+
+# その他
+*.zip 
