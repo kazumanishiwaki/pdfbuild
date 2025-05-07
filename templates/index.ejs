@@ -127,9 +127,9 @@
     <!-- 左カラム -->
     <div class="col">
       <!-- タイトル -->
-      <div class="title"><%= title || 'タイトル未設定' %></div>
+      <div class="title text-black"><%= title || 'タイトル未設定' %></div>
       <!-- リード文 -->
-      <div class="lead"><%= lead %></div>
+      <div class="lead text-black"><%= lead %></div>
       <div class="members">
         <% members.slice(0, 5).forEach(function(member) { %>
           <div class="member-block">
@@ -137,8 +137,8 @@
               <img src="<%= member.photo %>" alt="<%= member.name %>">
             </div>
             <div class="member-info">
-              <div class="member-name"><%= member.name %></div>
-              <div class="member-bio"><%= member.bio %></div>
+              <div class="member-name text-black"><%= member.name %></div>
+              <div class="member-bio text-black"><%= member.bio %></div>
             </div>
           </div>
         <% }); %>
@@ -153,8 +153,8 @@
               <img src="<%= member.photo %>" alt="<%= member.name %>">
             </div>
             <div class="member-info">
-              <div class="member-name"><%= member.name %></div>
-              <div class="member-bio"><%= member.bio %></div>
+              <div class="member-name text-black"><%= member.name %></div>
+              <div class="member-bio text-black"><%= member.bio %></div>
             </div>
           </div>
         <% }); %>
