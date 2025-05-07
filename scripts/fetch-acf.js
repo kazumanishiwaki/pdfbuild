@@ -15,7 +15,7 @@ async function fetchACFData() {
   try {
     // WordPress REST APIからACFデータを取得
     const response = await fetch(
-      `${WP_URL}/wp-json/wp/v2/pages/${WP_PAGE_ID}?context=edit`,
+      `${WP_URL}/wp-json/wp/v2/pages/${WP_PAGE_ID}`,
       {
         headers: {
           'Authorization': `Bearer ${WP_JWT}`
