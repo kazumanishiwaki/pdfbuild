@@ -23,7 +23,5 @@ jobs:
       - name: Upload PDF
         uses: actions/upload-artifact@v4
         with:
-          name: all-booklets
-          path: |
-            booklet_latest.pdf
-            booklet_*.pdf
+          name: booklet
+          path: booklet.pdf
