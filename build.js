@@ -46,7 +46,7 @@ async function generatePDF() {
     console.log('✅ Tailwind CSS built');
 
     // VivliostyleでPDFを生成（booklet.pdfのみ）
-    await execAsync(`./node_modules/.bin/vivliostyle build index.html -o ${pdfName} --no-sandbox`);
+    await execAsync(`./node_modules/.bin/vivliostyle build index.html -o ${pdfName} --no-sandbox --no-default-style`);
     console.log(`✅ PDF generated: ${pdfName}`);
   } catch (error) {
     console.error('Error generating PDF:', error);
