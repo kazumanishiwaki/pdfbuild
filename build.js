@@ -1,3 +1,4 @@
+
 import fs from 'fs';
 import ejs from 'ejs';
 import { exec } from 'child_process';
@@ -45,8 +46,8 @@ async function generatePDF() {
     await execAsync('./node_modules/.bin/tailwindcss -i ./src/input.css -o ./dist/output.css');
     console.log('✅ Tailwind CSS built');
 
-    // VivliostyleでPDFを生成（booklet.pdfのみ）
-    await execAsync(`./node_modules/.bin/vivliostyle build index.html -o ${pdfName} --no-sandbox --user-style user-style.css`);
+    // VivliostyleでPDFを生成（CSSファイルを明示的に指定）
+    await execAsync(`./node_modules/.bin/vivliostyle build index.html -o ${pdfName} --no-sandbox --user-style ./dist/output.css`);
     console.log(`✅ PDF generated: ${pdfName}`);
   } catch (error) {
     console.error('Error generating PDF:', error);
