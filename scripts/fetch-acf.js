@@ -68,26 +68,42 @@ async function fetchPageData(pageId) {
     throw new Error(`無効なAPI URL: ${apiUrl}`);
   }
   
-  const response = await fetch(
-    apiUrl,
-    {
-      headers: {
-        'Authorization': `Bearer ${WP_JWT}`
-      }
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-
-  const data = await response.json();
+  // 認証ヘッダーを設定
+  const headers = {};
   
-  // スラッグとACFデータを返す
-  return {
-    slug: data.slug,
-    acf: data.acf || {}
-  };
+  if (WP_JWT) {
+    // JWT認証の形式を変更 - 一般的な形式を試す
+    headers['Authorization'] = `Bearer ${WP_JWT}`;
+    console.log('JWT認証ヘッダーを使用します');
+  } else {
+    console.log('警告: JWT認証なしでリクエストを実行します');
+  }
+  
+  console.log('リクエストヘッダー:', headers);
+  
+  try {
+    const response = await fetch(apiUrl, { headers });
+    
+    console.log('レスポンスステータス:', response.status);
+    console.log('レスポンスヘッダー:', [...response.headers.entries()]);
+    
+    if (!response.ok) {
+      const responseText = await response.text();
+      console.error('エラーレスポンス本文:', responseText);
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    // スラッグとACFデータを返す
+    return {
+      slug: data.slug,
+      acf: data.acf || {}
+    };
+  } catch (error) {
+    console.error('API呼び出し中にエラーが発生しました:', error.message);
+    throw error;
+  }
 }
 
 async function fetchACFData() {

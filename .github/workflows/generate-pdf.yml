@@ -44,6 +44,12 @@ jobs:
           echo "使用するスラッグ: $TARGET_SLUG"
           echo "target_slug=$TARGET_SLUG" >> $GITHUB_OUTPUT
 
+      - name: Check WordPress API availability
+        run: |
+          echo "WordPressのREST API接続テスト中..."
+          curl -v "http://kazumanishiwaki.net/ks/wp-json/" || echo "ベースAPI呼び出し失敗"
+          curl -v "http://kazumanishiwaki.net/ks/wp-json/wp/v2/pages" || echo "ページAPI呼び出し失敗"
+
       - name: Fetch latest data from WordPress
         env:
           WP_PAGE_IDS: ${{ github.event.inputs.wp_post_ids }}
@@ -54,8 +60,8 @@ jobs:
           export WP_URL="http://kazumanishiwaki.net/ks"
           node scripts/fetch-acf.js
           echo "データ取得完了"
-          ls -la content*.json
-          cat content.json | jq
+          ls -la content*.json || echo "コンテンツファイルが生成されませんでした"
+          [ -f content.json ] && cat content.json | jq || echo "content.jsonが見つかりません"
 
       - name: Build PDF
         env:
