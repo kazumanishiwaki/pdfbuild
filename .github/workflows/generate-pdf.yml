@@ -3,9 +3,13 @@ name: Generate PDF
 on:
   workflow_dispatch:
     inputs:
-      wp_post_id:
-        description: 'WordPress投稿ID'
+      wp_post_ids:
+        description: 'WordPress投稿ID（複数の場合はカンマ区切り）'
         required: true
+        default: ''
+      target_slug:
+        description: 'ビルド対象のスラッグ（指定がなければ最初のIDを使用）'
+        required: false
         default: ''
 
 jobs:
@@ -14,6 +18,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -22,37 +28,59 @@ jobs:
           cache: 'npm'          
 
       - name: Install dependencies
-        run: npm ci           
+        run: npm ci
+
+      - name: Clone pdfBuild repository
+        run: |
+          git clone https://github.com/YOUR_USERNAME/pdfBuild.git
+          cd pdfBuild
+          npm ci
+
+      - name: Set build slug
+        id: set-slug
+        run: |
+          TARGET_SLUG="${{ github.event.inputs.target_slug }}"
+          if [ -z "$TARGET_SLUG" ]; then
+            # ターゲットスラッグが指定されていない場合は、最初のIDを使用
+            IDS="${{ github.event.inputs.wp_post_ids }}"
+            FIRST_ID=$(echo $IDS | cut -d ',' -f1)
+            TARGET_SLUG=$FIRST_ID
+          fi
+          echo "使用するスラッグ: $TARGET_SLUG"
+          echo "target_slug=$TARGET_SLUG" >> $GITHUB_OUTPUT
 
       - name: Fetch latest data from WordPress
         env:
           WP_URL: ${{ secrets.WP_URL }}
-          WP_PAGE_ID: ${{ github.event.inputs.wp_post_id }}
+          WP_PAGE_IDS: ${{ github.event.inputs.wp_post_ids }}
           WP_JWT: ${{ secrets.WP_JWT }}
         run: |
           echo "WordPressからデータを取得中..."
-          node pdfBuild/scripts/fetch-acf.js
+          cd pdfBuild
+          node scripts/fetch-acf.js
           echo "データ取得完了"
+          ls -la content*.json
           cat content.json | jq
 
       - name: Build PDF
         env:
-          SLUG: ${{ github.event.inputs.wp_post_id }}
-        run: node build.js
+          SLUG: ${{ steps.set-slug.outputs.target_slug }}
+        run: |
+          cd pdfBuild
+          node build.js
 
       - name: Upload PDF
         uses: actions/upload-artifact@v4
         with:
           name: booklet
-          path: booklet-${{ github.event.inputs.wp_post_id }}.pdf
+          path: pdfBuild/booklet-${{ steps.set-slug.outputs.target_slug }}.pdf
           retention-days: 14    
 
       - name: Notify WordPress with Run ID
         env:
           WEBHOOK: ${{ secrets.WP_WEBHOOK_URL }}
-          POST_ID: ${{ github.event.inputs.wp_post_id }}
+          POST_ID: ${{ steps.set-slug.outputs.target_slug }}
         run: |
           curl -X POST "$WEBHOOK" \
           -H "Content-Type: application/json" \
           -d "{\"run_id\": \"${{ github.run_id }}\", \"post_id\": \"$POST_ID\"}"
-              "ftp://$FTP_SERVER/$DEST_PATH/booklet-${SLUG}.pdf"
