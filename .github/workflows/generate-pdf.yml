@@ -18,15 +18,18 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: '18'
+
       - run: npm ci
+
       - name: Build PDF
         env:
           SLUG: ${{ github.event.inputs.slug }}
         run: node build.js
+
       - name: Upload via FTP
-        uses: SamKirkland/ftp-deploy-action@v4.4.0
+        uses: SamKirkland/FTP-Deploy-Action@4.4.0   # ← ここを修正
         with:
-          server: ${{ secrets.FTP_SERVER }}
+          server:   ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASS }}
           local-dir: .
