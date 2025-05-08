@@ -10,6 +10,35 @@ const {
   WP_JWT
 } = process.env;
 
+// 環境変数のデバッグ情報
+console.log('環境変数情報:');
+console.log(`WP_URL: ${WP_URL ? '設定されています' : '未設定'}`);
+console.log(`WP_JWT: ${WP_JWT ? '設定されています' : '未設定'}`);
+console.log(`WP_PAGE_IDS: ${process.env.WP_PAGE_IDS || '未設定'}`);
+
+// 環境変数の検証
+if (!WP_URL) {
+  console.error('エラー: WP_URL環境変数が設定されていません。');
+  process.exit(1);
+}
+
+// URLの検証
+function validateUrl(url) {
+  try {
+    new URL(url);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+// URLが有効かチェック
+if (!validateUrl(WP_URL)) {
+  console.error(`エラー: 無効なURL形式です: ${WP_URL}`);
+  console.error('正しい形式の例: https://example.com');
+  process.exit(1);
+}
+
 // 第一引数としてページIDを受け取るか、環境変数から取得
 const getPageIds = () => {
   // コマンドライン引数からページIDを取得（カンマ区切りで複数指定可能）
@@ -32,8 +61,15 @@ const getPageIds = () => {
 
 async function fetchPageData(pageId) {
   // WordPress REST APIからページデータを取得
+  const apiUrl = `${WP_URL}/wp-json/wp/v2/pages/${pageId}`;
+  console.log(`APIリクエスト: ${apiUrl}`);
+  
+  if (!validateUrl(apiUrl)) {
+    throw new Error(`無効なAPI URL: ${apiUrl}`);
+  }
+  
   const response = await fetch(
-    `${WP_URL}/wp-json/wp/v2/pages/${pageId}`,
+    apiUrl,
     {
       headers: {
         'Authorization': `Bearer ${WP_JWT}`
