@@ -1,6 +1,6 @@
-const fs = require('fs');
-const dotenv = require('dotenv');
-const fetch = require('node-fetch');
+import fs from 'fs';
+import dotenv from 'dotenv';
+import fetch from 'node-fetch';
 
 // 環境変数の読み込み
 dotenv.config();
