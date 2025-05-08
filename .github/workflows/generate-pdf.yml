@@ -22,7 +22,7 @@ jobs:
       - name: Build PDF
         run: node build.js            # ← build.js が booklet.pdf を出力
 
-      # （artifact を残したいならこのまま残してOK。不要なら削除）
+      # アーティファクトのアップロード（オプション）
       - name: Upload PDF Artefact
         uses: actions/upload-artifact@v4
         with:
@@ -30,12 +30,15 @@ jobs:
           path: booklet.pdf
           retention-days: 14
 
-      # ▼ ここが WordPress への PDF 直送ステップ
-      - name: Send PDF to WordPress
-        run: |
-          curl -X POST "http://kazumanishiwaki.net/ks/wp-json/custom/v1/upload-pdf" \
-               -H "Authorization: Bearer 9f3d7c7e6b1e94b3062fa8b2d4e6d6d88bf4f1b8655de1d9b45c7c9a1e8c2a9d" \
-               -H "Content-Type: application/pdf" \
-               -v \
-               --data-binary @booklet.pdf
+      # FTPでPDFをWordPressサーバーに転送
+      - name: Upload PDF via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./
+          server-dir: ${{ secrets.FTP_DESTINATION_PATH }}
+          include: |
+            booklet.pdf
 
