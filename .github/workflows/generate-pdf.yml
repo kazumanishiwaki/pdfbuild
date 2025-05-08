@@ -39,4 +39,4 @@ jobs:
         run: |
           curl --ftp-create-dirs -T "booklet-${SLUG}.pdf" \
                -u "$FTP_USER:$FTP_PASS" \
-               "ftp://$FTP_SERVER/pdf-booklet/booklet-${SLUG}.pdf"
+               "ftp://$FTP_SERVER/pdf/booklet-${SLUG}.pdf"
