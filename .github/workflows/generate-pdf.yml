@@ -2,67 +2,35 @@ name: Generate PDF
 
 on:
   workflow_dispatch:
-
+    inputs:
+      slug:
+        description: 'Page slug'
+        required: true
+      title:
+        description: 'Page title'
+        required: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - uses: actions/setup-node@v3
         with:
           node-version: '18'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
+      - run: npm ci
       - name: Build PDF
-        run: node build.js            # ← build.js が booklet.pdf を出力
-
-      # アーティファクトのアップロード（オプション）
-      - name: Upload PDF Artefact
-        uses: actions/upload-artifact@v4
-        with:
-          name: booklet
-          path: booklet.pdf
-          retention-days: 14
-
-      # FTP設定のデバッグ出力
-      - name: Debug FTP configuration
-        run: |
-          echo "FTP Server: Attempting to connect to ${{ secrets.FTP_SERVER }}"
-          echo "Server Directory: ${{ secrets.FTP_DESTINATION_PATH }}/"
-          echo "Current directory content:"
-          ls -la
-          echo "PDF files to be uploaded:"
-          find . -name "*.pdf" -type f | sort
-
-      # FTPでPDFをWordPressサーバーに転送（パスを修正）
-      - name: Upload PDF via FTP with verbose logging
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        env:
+          SLUG: ${{ github.event.inputs.slug }}
+        run: node build.js
+      - name: Upload via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4
         with:
           server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./
-          server-dir: ${{ secrets.FTP_DESTINATION_PATH }}/
-          log-level: verbose
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASS }}
+          local-dir: .
+          server-dir: pdf-booklet/
           exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
-            README.md
-            package.json
-            package-lock.json
-            .github/**
-            css/**
-            dist/**
-            scripts/**
-            src/**
-            templates/**
-            !booklet.pdf
-
+            **
+            !booklet-${{ github.event.inputs.slug }}.pdf
