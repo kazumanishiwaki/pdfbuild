@@ -46,11 +46,12 @@ jobs:
 
       - name: Fetch latest data from WordPress
         env:
-          WP_URL: ${{ secrets.WP_URL }}
           WP_PAGE_IDS: ${{ github.event.inputs.wp_post_ids }}
           WP_JWT: ${{ secrets.WP_JWT }}
         run: |
           echo "WordPressからデータを取得中..."
+          # 明示的にWP_URLを設定
+          export WP_URL="http://kazumanishiwaki.net/ks"
           node scripts/fetch-acf.js
           echo "データ取得完了"
           ls -la content*.json
