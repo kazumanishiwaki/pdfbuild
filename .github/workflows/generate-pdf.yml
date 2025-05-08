@@ -10,14 +10,17 @@ on:
         description: 'Page title'
         required: false
 
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
       - uses: actions/setup-node@v3
         with:
           node-version: '18'
+
       - run: npm ci
 
       - name: Build PDF
@@ -25,14 +28,13 @@ jobs:
           SLUG: ${{ github.event.inputs.slug }}
         run: node build.js
 
-      - name: Upload via FTP
-        uses: SamKirkland/ftp-deploy-action@v4   # use major tag with lowercase repo
-        with:
-          server:   ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USER }}
-          password: ${{ secrets.FTP_PASS }}
-          local-dir: .
-          server-dir: pdf-booklet/
-          exclude: |
-            **
-            !booklet-${{ github.event.inputs.slug }}.pdf
+      - name: Upload via FTP with curl
+        env:
+          FTP_SERVER:   ${{ secrets.FTP_SERVER }}
+          FTP_USER:     ${{ secrets.FTP_USER }}
+          FTP_PASS:     ${{ secrets.FTP_PASS }}
+          SLUG:         ${{ github.event.inputs.slug }}
+        run: |
+          curl --ftp-create-dirs -T "booklet-${SLUG}.pdf" \
+               -u "$FTP_USER:$FTP_PASS" \
+               "ftp://$FTP_SERVER/pdf-booklet/booklet-${SLUG}.pdf"
