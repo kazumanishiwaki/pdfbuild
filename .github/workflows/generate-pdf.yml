@@ -33,11 +33,9 @@ jobs:
       - name: Upload via FTP with curl
         env:
           FTP_SERVER:   ${{ secrets.FTP_SERVER }}
-    FTP_USER:     ${{ secrets.FTP_USERNAME }}    # ← 修正
-    FTP_PASS:     ${{ secrets.FTP_PASSWORD }}    # ← 修正
-    SLUG:         ${{ github.event.inputs.slug }}
+          FTP_USER:     ${{ secrets.FTP_USERNAME }}
+          FTP_PASS:     ${{ secrets.FTP_PASSWORD }}
+          DEST_PATH:    ${{ secrets.FTP_DESTINATION_PATH }}
           SLUG:         ${{ github.event.inputs.slug }}
         run: |
-          curl --ftp-create-dirs -T "booklet-${SLUG}.pdf" \
-               -u "$FTP_USER:$FTP_PASS" \
-               "ftp://$FTP_SERVER/pdf/booklet-${SLUG}.pdf"
+          curl --ftp-create-dirs -T "booklet-${SLUG}.pdf"                -u "$FTP_USER:$FTP_PASS"                "ftp://$FTP_SERVER/$DEST_PATH/booklet-${SLUG}.pdf"
