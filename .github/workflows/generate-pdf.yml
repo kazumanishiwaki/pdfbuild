@@ -38,7 +38,14 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./
-          server-dir: ${{ secrets.FTP_DESTINATION_PATH }}
-          include: |
-            booklet.pdf
+          server-dir: ${{ secrets.FTP_DESTINATION_PATH }}/
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            README.md
+            package.json
+            package-lock.json
+            .github/**
+            !booklet.pdf
 
