@@ -3,39 +3,56 @@ name: Generate PDF
 on:
   workflow_dispatch:
     inputs:
-      slug:
-        description: 'Page slug'
+      wp_post_id:
+        description: 'WordPress投稿ID'
         required: true
-      title:
-        description: 'Page title'
-        required: false
+        default: ''
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions/setup-node@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
           node-version: '18'
+          cache: 'npm'          
 
-      - run: npm ci
+      - name: Install dependencies
+        run: npm ci           
 
-      - name: Install Vivliostyle
-        run: npm install -g @vivliostyle/cli
+      - name: Fetch latest data from WordPress
+        env:
+          WP_URL: ${{ secrets.WP_URL }}
+          WP_PAGE_ID: ${{ github.event.inputs.wp_post_id }}
+          WP_JWT: ${{ secrets.WP_JWT }}
+        run: |
+          echo "WordPressからデータを取得中..."
+          node pdfBuild/scripts/fetch-acf.js
+          echo "データ取得完了"
+          cat content.json | jq
 
       - name: Build PDF
         env:
-          SLUG: ${{ github.event.inputs.slug }}
+          SLUG: ${{ github.event.inputs.wp_post_id }}
         run: node build.js
 
-      - name: Upload via FTP with curl
+      - name: Upload PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: booklet
+          path: booklet-${{ github.event.inputs.wp_post_id }}.pdf
+          retention-days: 14    
+
+      - name: Notify WordPress with Run ID
         env:
-          FTP_SERVER:   ${{ secrets.FTP_SERVER }}
-          FTP_USER:     ${{ secrets.FTP_USERNAME }}
-          FTP_PASS:     ${{ secrets.FTP_PASSWORD }}
-          DEST_PATH:    ${{ secrets.FTP_DESTINATION_PATH }}
-          SLUG:         ${{ github.event.inputs.slug }}
+          WEBHOOK: ${{ secrets.WP_WEBHOOK_URL }}
+          POST_ID: ${{ github.event.inputs.wp_post_id }}
         run: |
-          curl --ftp-create-dirs -T "booklet-${SLUG}.pdf"                -u "$FTP_USER:$FTP_PASS"                "ftp://$FTP_SERVER/$DEST_PATH/booklet-${SLUG}.pdf"
+          curl -X POST "$WEBHOOK" \
+          -H "Content-Type: application/json" \
+          -d "{\"run_id\": \"${{ github.run_id }}\", \"post_id\": \"$POST_ID\"}"
+              "ftp://$FTP_SERVER/$DEST_PATH/booklet-${SLUG}.pdf"
