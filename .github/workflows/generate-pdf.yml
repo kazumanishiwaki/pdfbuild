@@ -3,6 +3,7 @@ name: Generate PDF
 on:
   workflow_dispatch:
 
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -30,8 +31,18 @@ jobs:
           path: booklet.pdf
           retention-days: 14
 
-      # FTPでPDFをWordPressサーバーに転送
-      - name: Upload PDF via FTP
+      # FTP設定のデバッグ出力
+      - name: Debug FTP configuration
+        run: |
+          echo "FTP Server: Attempting to connect to ${{ secrets.FTP_SERVER }}"
+          echo "Server Directory: ${{ secrets.FTP_DESTINATION_PATH }}/"
+          echo "Current directory content:"
+          ls -la
+          echo "PDF files to be uploaded:"
+          find . -name "*.pdf" -type f | sort
+
+      # FTPでPDFをWordPressサーバーに転送（パスを修正）
+      - name: Upload PDF via FTP with verbose logging
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -39,6 +50,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./
           server-dir: ${{ secrets.FTP_DESTINATION_PATH }}/
+          log-level: verbose
           exclude: |
             **/.git*
             **/.git*/**
@@ -47,5 +59,10 @@ jobs:
             package.json
             package-lock.json
             .github/**
+            css/**
+            dist/**
+            scripts/**
+            src/**
+            templates/**
             !booklet.pdf
 
