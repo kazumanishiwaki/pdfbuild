@@ -10,7 +10,6 @@ on:
         description: 'Page title'
         required: false
 
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -25,7 +24,7 @@ jobs:
           SLUG: ${{ github.event.inputs.slug }}
         run: node build.js
       - name: Upload via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        uses: SamKirkland/ftp-deploy-action@v4.4.0
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USER }}
