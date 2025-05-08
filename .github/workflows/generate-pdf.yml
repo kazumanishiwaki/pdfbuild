@@ -18,7 +18,6 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: '18'
-
       - run: npm ci
 
       - name: Build PDF
@@ -27,7 +26,7 @@ jobs:
         run: node build.js
 
       - name: Upload via FTP
-        uses: SamKirkland/FTP-Deploy-Action@4.4.0   # ← ここを修正
+        uses: SamKirkland/ftp-deploy-action@v4   # use major tag with lowercase repo
         with:
           server:   ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USER }}
