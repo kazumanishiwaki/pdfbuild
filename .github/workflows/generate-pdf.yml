@@ -32,12 +32,10 @@ jobs:
 
       # ▼ ここが WordPress への PDF 直送ステップ
       - name: Send PDF to WordPress
-        env:
-          WP_PDF_URL:    ${{ secrets.WP_PDF_URL }}     # 例: https://example.com/wp-json/custom/v1/upload-pdf
-          WP_PDF_TOKEN:  ${{ secrets.WP_PDF_TOKEN }}   # wp-config.php と同じトークン
         run: |
-          curl -X POST "$WP_PDF_URL" \
-               -H "Authorization: Bearer $WP_PDF_TOKEN" \
+          curl -X POST "http://kazumanishiwaki.net/ks/wp-json/custom/v1/upload-pdf" \
+               -H "Authorization: Bearer 9f3d7c7e6b1e94b3062fa8b2d4e6d6d88bf4f1b8655de1d9b45c7c9a1e8c2a9d" \
                -H "Content-Type: application/pdf" \
+               -v \
                --data-binary @booklet.pdf
 
