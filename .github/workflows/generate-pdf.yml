@@ -44,12 +44,6 @@ jobs:
           echo "使用するスラッグ: $TARGET_SLUG"
           echo "target_slug=$TARGET_SLUG" >> $GITHUB_OUTPUT
 
-      - name: Check WordPress API availability
-        run: |
-          echo "WordPressのREST API接続テスト中..."
-          curl -v "http://kazumanishiwaki.net/ks/wp-json/" || echo "ベースAPI呼び出し失敗"
-          curl -v "http://kazumanishiwaki.net/ks/wp-json/wp/v2/pages" || echo "ページAPI呼び出し失敗"
-
       - name: Fetch latest data from WordPress
         env:
           WP_PAGE_IDS: ${{ github.event.inputs.wp_post_ids }}
@@ -58,10 +52,21 @@ jobs:
           echo "WordPressからデータを取得中..."
           # 明示的にWP_URLを設定
           export WP_URL="http://kazumanishiwaki.net/ks"
+          
+          # JWTが設定されているか確認（セキュリティのため内容は表示しない）
+          if [ -n "$WP_JWT" ]; then
+            echo "JWT認証トークンが設定されています"
+          else
+            echo "警告: JWT認証トークンが設定されていません"
+          fi
+          
+          # テスト用に一時的にBasic認証を試す（必要に応じて）
+          # export WP_BASIC_AUTH="username:password"
+          
           node scripts/fetch-acf.js
           echo "データ取得完了"
-          ls -la content*.json || echo "コンテンツファイルが生成されませんでした"
-          [ -f content.json ] && cat content.json | jq || echo "content.jsonが見つかりません"
+          ls -la content*.json || echo "JSONファイルが生成されませんでした"
+          cat content.json 2>/dev/null || echo "content.jsonファイルが見つかりません"
 
       - name: Build PDF
         env:
