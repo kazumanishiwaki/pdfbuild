@@ -14,25 +14,30 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-          cache: 'npm'          # ← 依存キャッシュ
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci             # npm install より再現性が高い
+        run: npm ci
 
       - name: Build PDF
-        run: node build.js
+        run: node build.js            # ← build.js が booklet.pdf を出力
 
-      - name: Upload PDF
+      # （artifact を残したいならこのまま残してOK。不要なら削除）
+      - name: Upload PDF Artefact
         uses: actions/upload-artifact@v4
         with:
           name: booklet
           path: booklet.pdf
-          retention-days: 14    # ← 任意。無指定なら 90 日
+          retention-days: 14
 
-      - name: Notify WordPress with Run ID
+      # ▼ ここが WordPress への PDF 直送ステップ
+      - name: Send PDF to WordPress
         env:
-          WEBHOOK: ${{ secrets.WP_WEBHOOK_URL }}
+          WP_PDF_URL:    ${{ secrets.WP_PDF_URL }}     # 例: https://example.com/wp-json/custom/v1/upload-pdf
+          WP_PDF_TOKEN:  ${{ secrets.WP_PDF_TOKEN }}   # wp-config.php と同じトークン
         run: |
-          curl -X POST "$WEBHOOK" \
-          -H "Content-Type: application/json" \
-          -d "{\"run_id\": \"${{ github.run_id }}\"}"
+          curl -X POST "$WP_PDF_URL" \
+               -H "Authorization: Bearer $WP_PDF_TOKEN" \
+               -H "Content-Type: application/pdf" \
+               --data-binary @booklet.pdf
+
