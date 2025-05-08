@@ -17,7 +17,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -29,12 +30,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Clone pdfBuild repository
-        run: |
-          git clone https://github.com/kazumanishiwaki/pdfbuild.git
-          cd pdfBuild
-          npm ci
 
       - name: Set build slug
         id: set-slug
@@ -56,7 +51,6 @@ jobs:
           WP_JWT: ${{ secrets.WP_JWT }}
         run: |
           echo "WordPressからデータを取得中..."
-          cd pdfBuild
           node scripts/fetch-acf.js
           echo "データ取得完了"
           ls -la content*.json
@@ -65,15 +59,13 @@ jobs:
       - name: Build PDF
         env:
           SLUG: ${{ steps.set-slug.outputs.target_slug }}
-        run: |
-          cd pdfBuild
-          node build.js
+        run: node build.js
 
       - name: Upload PDF
         uses: actions/upload-artifact@v4
         with:
           name: booklet
-          path: pdfBuild/booklet-${{ steps.set-slug.outputs.target_slug }}.pdf
+          path: booklet-${{ steps.set-slug.outputs.target_slug }}.pdf
           retention-days: 14    
 
       - name: Notify WordPress with Run ID
