@@ -44,6 +44,14 @@ jobs:
           echo "使用するスラッグ: $TARGET_SLUG"
           echo "target_slug=$TARGET_SLUG" >> $GITHUB_OUTPUT
 
+      - name: Check JWT token
+        env:
+          WP_URL: "http://kazumanishiwaki.net/ks"
+          WP_JWT: ${{ secrets.WP_JWT }}
+        run: |
+          echo "JWTトークン検証を実行します..."
+          node scripts/test-jwt.js
+          
       - name: Fetch latest data from WordPress
         env:
           WP_PAGE_IDS: ${{ github.event.inputs.wp_post_ids }}
