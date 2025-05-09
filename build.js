@@ -1,9 +1,87 @@
 import fs from 'fs';
 import ejs from 'ejs';
 import { execSync } from 'child_process';
+import path from 'path';
+import https from 'https';
+import http from 'http';
+import { createHash } from 'crypto';
 
 // スラッグまたはページIDの取得（GitHub Actionsで使用）
 const identifier = process.env.SLUG || process.env.PAGE_ID || 'sample';
+
+// 画像ダウンロード用の関数
+async function downloadImage(url) {
+  // URLが既にローカルファイルを指している場合はそのまま返す
+  if (url.startsWith('./') || url.startsWith('/') || url.startsWith('file://')) {
+    return url;
+  }
+
+  // URLのハッシュ値を計算してファイル名として使用
+  const hash = createHash('md5').update(url).digest('hex');
+  const fileExt = path.extname(url) || '.jpg'; // 拡張子がない場合はjpgと仮定
+  const fileName = `images/${hash}${fileExt}`;
+
+  // imagesディレクトリが存在しない場合は作成
+  if (!fs.existsSync('images')) {
+    fs.mkdirSync('images', { recursive: true });
+  }
+
+  // 既にダウンロード済みの場合はキャッシュを返す
+  if (fs.existsSync(fileName)) {
+    console.log(`🖼️ キャッシュから画像を使用: ${fileName}`);
+    return fileName;
+  }
+
+  // 画像をダウンロード
+  return new Promise((resolve, reject) => {
+    console.log(`🖼️ 画像をダウンロード中: ${url}`);
+    
+    // URLがプレースホルダーの場合は特別な処理
+    if (url.includes('placehold.co')) {
+      console.log(`🖼️ プレースホルダー画像です: ${url}`);
+      resolve(url); // プレースホルダーの場合はそのまま返す
+      return;
+    }
+
+    const protocol = url.startsWith('https') ? https : http;
+    
+    protocol.get(url, (response) => {
+      // リダイレクトの処理
+      if (response.statusCode === 301 || response.statusCode === 302) {
+        const redirectUrl = response.headers.location;
+        console.log(`🔄 リダイレクト: ${url} → ${redirectUrl}`);
+        downloadImage(redirectUrl).then(resolve).catch(reject);
+        return;
+      }
+
+      // エラーの場合
+      if (response.statusCode !== 200) {
+        console.error(`❌ 画像ダウンロードエラー: ${url} (${response.statusCode})`);
+        resolve(url); // エラーの場合は元のURLを返す
+        return;
+      }
+
+      // 成功した場合はファイルに保存
+      const file = fs.createWriteStream(fileName);
+      response.pipe(file);
+      
+      file.on('finish', () => {
+        file.close();
+        console.log(`✅ 画像保存完了: ${fileName}`);
+        resolve(fileName);
+      });
+      
+      file.on('error', (err) => {
+        fs.unlink(fileName, () => {}); // エラー時にファイルを削除
+        console.error(`❌ 画像保存エラー: ${url}`, err);
+        resolve(url); // エラーの場合は元のURLを返す
+      });
+    }).on('error', (err) => {
+      console.error(`❌ 画像ダウンロードエラー: ${url}`, err);
+      resolve(url); // エラーの場合は元のURLを返す
+    });
+  });
+}
 
 try {
   // 出力ファイル名には常にスラッグを使用するための変数
@@ -102,56 +180,69 @@ try {
   // Load raw ACF data (flat structure)
   const data = JSON.parse(fs.readFileSync(contentFile, 'utf-8'));
 
-  // Convert fixed member fields → array
-  const members = [];
-  for (let i = 1; i <= 10; i++) {
-    const name = data[`member${i}_name`];
-    if (name && name.trim() !== '') {
-      members.push({
-        name,
-        photo: data[`member${i}_photo`] || 'https://placehold.co/380x380.png',
-        bio: data[`member${i}_bio`] || ''
-      });
+  // PDFの生成を非同期に行うメイン関数
+  async function generatePDF() {
+    // Convert fixed member fields → array and download photos
+    const members = [];
+    for (let i = 1; i <= 10; i++) {
+      const name = data[`member${i}_name`];
+      if (name && name.trim() !== '') {
+        const photoUrl = data[`member${i}_photo`] || 'https://placehold.co/380x380.png';
+        // 画像をダウンロードしてローカルパスを取得
+        const localPhotoPath = await downloadImage(photoUrl);
+        
+        members.push({
+          name,
+          photo: localPhotoPath,
+          bio: data[`member${i}_bio`] || ''
+        });
+      }
+    }
+
+    // Merge into template context
+    const context = {
+      title: data.title || '',
+      lead: data.lead || '',
+      members
+    };
+
+    // Compile EJS
+    const tpl = fs.readFileSync('templates/index.ejs', 'utf-8');
+    const html = ejs.render(tpl, context);
+
+    // Write HTML
+    fs.writeFileSync('index.html', html);
+    console.log(`✅ index.html generated for identifier: ${identifier} (ACF free build)`);
+
+    // Tailwind CSSのビルド
+    execSync('./node_modules/.bin/tailwindcss -i ./src/input.css -o ./dist/output.css', { stdio: 'inherit' });
+    console.log('✅ Tailwind CSS built');
+
+    // 常に取得したスラッグを使用してPDFファイルを生成
+    const pdfFilename = `booklet-${slugForFile}.pdf`;
+    console.log(`🔍 PDFファイル名: ${pdfFilename} でビルドします`);
+    execSync(`./node_modules/.bin/vivliostyle build index.html -o ${pdfFilename} --no-sandbox`, { stdio: 'inherit' });
+    console.log(`✅ PDF generated: ${pdfFilename}`);
+
+    // 念のため識別子が数値（ID）の場合はファイルをコピー
+    if (/^\d+$/.test(identifier) && slugForFile !== identifier) {
+      const idPdfFilename = `booklet-${identifier}.pdf`;
+      fs.copyFileSync(pdfFilename, idPdfFilename);
+      console.log(`✅ 互換性のためページIDを使用したファイルも作成: ${idPdfFilename}`);
+    }
+
+    // 環境変数SLUGを設定してGitHub Actionsに実際のスラッグを伝える（可能な場合）
+    if (process.env.GITHUB_ENV) {
+      fs.appendFileSync(process.env.GITHUB_ENV, `SLUG=${slugForFile}\n`);
+      console.log(`✅ GitHub Actions環境変数SLUGを${slugForFile}に設定しました`);
     }
   }
 
-  // Merge into template context
-  const context = {
-    title: data.title || '',
-    lead: data.lead || '',
-    members
-  };
-
-  // Compile EJS
-  const tpl = fs.readFileSync('templates/index.ejs', 'utf-8');
-  const html = ejs.render(tpl, context);
-
-  // Write HTML
-  fs.writeFileSync('index.html', html);
-  console.log(`✅ index.html generated for identifier: ${identifier} (ACF free build)`);
-
-  // Tailwind CSSのビルド
-  execSync('./node_modules/.bin/tailwindcss -i ./src/input.css -o ./dist/output.css', { stdio: 'inherit' });
-  console.log('✅ Tailwind CSS built');
-
-  // 常に取得したスラッグを使用してPDFファイルを生成
-  const pdfFilename = `booklet-${slugForFile}.pdf`;
-  console.log(`🔍 PDFファイル名: ${pdfFilename} でビルドします`);
-  execSync(`./node_modules/.bin/vivliostyle build index.html -o ${pdfFilename} --no-sandbox`, { stdio: 'inherit' });
-  console.log(`✅ PDF generated: ${pdfFilename}`);
-
-  // 念のため識別子が数値（ID）の場合はファイルをコピー
-  if (/^\d+$/.test(identifier) && slugForFile !== identifier) {
-    const idPdfFilename = `booklet-${identifier}.pdf`;
-    fs.copyFileSync(pdfFilename, idPdfFilename);
-    console.log(`✅ 互換性のためページIDを使用したファイルも作成: ${idPdfFilename}`);
-  }
-
-  // 環境変数SLUGを設定してGitHub Actionsに実際のスラッグを伝える（可能な場合）
-  if (process.env.GITHUB_ENV) {
-    fs.appendFileSync(process.env.GITHUB_ENV, `SLUG=${slugForFile}\n`);
-    console.log(`✅ GitHub Actions環境変数SLUGを${slugForFile}に設定しました`);
-  }
+  // PDF生成を実行
+  generatePDF().catch(error => {
+    console.error('Error during PDF generation:', error);
+    process.exit(1);
+  });
 
 } catch (error) {
   console.error('Error:', error);
