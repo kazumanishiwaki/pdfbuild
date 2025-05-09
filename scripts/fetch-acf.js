@@ -72,7 +72,8 @@ async function fetchPageData(pageId) {
     apiUrl,
     {
       headers: {
-        'Authorization': `Bearer ${WP_JWT}`
+        'Authorization': `Bearer ${WP_JWT}`,
+        'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
       }
     }
   );
