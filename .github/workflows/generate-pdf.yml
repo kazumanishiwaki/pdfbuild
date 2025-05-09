@@ -63,11 +63,20 @@ jobs:
           SLUG: ${{ steps.set-slug.outputs.target_slug }}
         run: |
           node build.js
-          # 生成されたPDFのファイル名を出力
-          PDF_FILENAME="booklet-${{ steps.set-slug.outputs.target_slug }}.pdf"
-          echo "pdf_file=$PDF_FILENAME" >> $GITHUB_OUTPUT
+          
+          # 実際に生成されたPDFファイルを見つける
+          echo "ビルドディレクトリ内のPDFファイル:"
+          find . -type f -name "*.pdf" | sort
+          
+          # スラッグベースのファイル名を優先
+          ACTUAL_PDF_FILENAME=$(find . -type f -name "booklet-*.pdf" | head -n 1)
+          ACTUAL_PDF_FILENAME=$(basename "$ACTUAL_PDF_FILENAME")
+          
+          echo "検出されたPDFファイル: $ACTUAL_PDF_FILENAME"
+          echo "pdf_file=$ACTUAL_PDF_FILENAME" >> $GITHUB_OUTPUT
+          
           # ファイルサイズを取得して人間が読める形式で表示
-          FILE_SIZE=$(stat -c%s "$PDF_FILENAME")
+          FILE_SIZE=$(stat -c%s "$ACTUAL_PDF_FILENAME")
           FILE_SIZE_HUMAN=$(numfmt --to=iec --suffix=B $FILE_SIZE)
           echo "pdf_size=$FILE_SIZE_HUMAN" >> $GITHUB_OUTPUT
 
@@ -75,7 +84,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: booklet
-          path: booklet-${{ steps.set-slug.outputs.target_slug }}.pdf
+          path: ${{ steps.build-pdf.outputs.pdf_file }}
           retention-days: 14
 
       - name: Upload PDF to WordPress Server via FTP
@@ -86,30 +95,28 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./
-          server-dir: ${{ secrets.FTP_DESTINATION_PATH }}/
+          server-dir: /wp-content/uploads/pdf-booklet/
           exclude: |
             **/*
-            !booklet-${{ steps.set-slug.outputs.target_slug }}.pdf
+            !${{ steps.build-pdf.outputs.pdf_file }}
           dangerous-clean-slate: false
           
       - name: Display Upload Information
         env:
           PDF_FILENAME: ${{ steps.build-pdf.outputs.pdf_file }}
           PDF_SIZE: ${{ steps.build-pdf.outputs.pdf_size }}
-          WP_URL: ${{ secrets.WP_URL }}
-          FTP_PATH: ${{ secrets.FTP_DESTINATION_PATH }}
         run: |
           echo "==================================================================="
           echo "📄 PDF情報"
           echo "==================================================================="
           echo "📦 ファイル名: $PDF_FILENAME"
           echo "📊 ファイルサイズ: $PDF_SIZE"
-          echo "🌐 アップロード先FTPパス: $FTP_PATH/$PDF_FILENAME"
+          echo "🌐 アップロード先FTPパス: /wp-content/uploads/pdf-booklet/$PDF_FILENAME"
           
-          # WordPressサイト上のURLを推測
-          # FTPパスが「/wp-content/uploads/pdf-booklet/」のような形式を想定
-          UPLOAD_DIR_PATH=$(echo "$FTP_PATH" | sed -e 's/^\/*//' -e 's/\/*$//')
-          echo "🔍 推定WordPressアクセスURL: $WP_URL/$UPLOAD_DIR_PATH/$PDF_FILENAME"
+          # WordPressサイト上のURL
+          WP_BASE_URL="https://kazumanishiwaki.net/ks"
+          UPLOAD_PATH="wp-content/uploads/pdf-booklet"
+          echo "🔍 WordPressアクセスURL: $WP_BASE_URL/$UPLOAD_PATH/$PDF_FILENAME"
           echo "==================================================================="
       
       - name: Notify WordPress with Run ID
