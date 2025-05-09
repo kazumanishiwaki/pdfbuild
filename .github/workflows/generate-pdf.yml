@@ -115,7 +115,7 @@ jobs:
           
           # WordPressサイト上のURL
           WP_BASE_URL="https://kazumanishiwaki.net/ks"
-          UPLOAD_PATH="wp-content/uploads/pdf-booklet"
+          UPLOAD_PATH="kazumanishiwaki.net/public_html/ks/wp-content/uploads/pdf-booklet"
           echo "🔍 WordPressアクセスURL: $WP_BASE_URL/$UPLOAD_PATH/$PDF_FILENAME"
           echo "==================================================================="
       
