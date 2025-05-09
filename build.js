@@ -91,9 +91,16 @@ try {
   execSync('./node_modules/.bin/tailwindcss -i ./src/input.css -o ./dist/output.css', { stdio: 'inherit' });
   console.log('✅ Tailwind CSS built');
 
-  // VivliostyleでPDFを生成（実際のスラッグを使用）
-  execSync(`./node_modules/.bin/vivliostyle build index.html -o booklet-${actualSlug}.pdf --no-sandbox`, { stdio: 'inherit' });
-  console.log(`✅ PDF generated: booklet-${actualSlug}.pdf`);
+  // 常に実際のスラッグを使用してPDFファイルを生成
+  const pdfFilename = `booklet-${actualSlug}.pdf`;
+  execSync(`./node_modules/.bin/vivliostyle build index.html -o ${pdfFilename} --no-sandbox`, { stdio: 'inherit' });
+  console.log(`✅ PDF generated: ${pdfFilename}`);
+
+  // 環境変数SLUGを設定してGitHub Actionsに実際のスラッグを伝える（可能な場合）
+  if (process.env.GITHUB_ENV) {
+    fs.appendFileSync(process.env.GITHUB_ENV, `SLUG=${actualSlug}\n`);
+    console.log(`✅ GitHub Actions環境変数SLUGを${actualSlug}に設定しました`);
+  }
 
 } catch (error) {
   console.error('Error:', error);
