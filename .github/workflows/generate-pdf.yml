@@ -76,9 +76,10 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./
-          server-dir: ${{ secrets.FTP_DESTINATION_PATH }}
-          include: |
-            booklet-${{ steps.set-slug.outputs.target_slug }}.pdf
+          server-dir: ${{ secrets.FTP_DESTINATION_PATH }}/
+          exclude: |
+            **/*
+            !booklet-${{ steps.set-slug.outputs.target_slug }}.pdf
           dangerous-clean-slate: false
           
       - name: Notify WordPress with Run ID
