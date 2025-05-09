@@ -6,10 +6,21 @@ import { execSync } from 'child_process';
 const identifier = process.env.SLUG || process.env.PAGE_ID || 'sample';
 
 try {
+  // 出力ファイル名には常にスラッグを使用するための変数
+  let slugForFile = 'sample'; // デフォルト値
+
   // IDとスラッグのマッピング情報を読み込み
   let idSlugMap = {};
   if (fs.existsSync('id-slug-map.json')) {
     idSlugMap = JSON.parse(fs.readFileSync('id-slug-map.json', 'utf-8'));
+    console.log('📄 ID-スラッグマッピング情報を読み込みました');
+    console.log(JSON.stringify(idSlugMap, null, 2));
+    
+    // もしIDがマッピングに存在する場合、そのスラッグを使用
+    if (idSlugMap[identifier]) {
+      slugForFile = idSlugMap[identifier];
+      console.log(`📄 マッピング情報から識別子「${identifier}」に対応するスラッグ「${slugForFile}」を取得しました`);
+    }
   } else {
     console.log('⚠️ ID-スラッグマッピング情報が見つかりません。直接ファイル検索を行います。');
   }
@@ -17,13 +28,15 @@ try {
   // コンテンツファイルの決定
   let contentFile = 'content.json';
   let fileFound = false;
-  let actualSlug = identifier;
+  let actualSlug = slugForFile; // デフォルトはマッピングから取得したスラッグ
 
   // 1. スラッグベースのファイルを検索
   const slugSpecificFile = `content-${identifier}.json`;
   if (fs.existsSync(slugSpecificFile)) {
     contentFile = slugSpecificFile;
     fileFound = true;
+    actualSlug = identifier; // スラッグとして使用
+    slugForFile = identifier;
     console.log(`📄 スラッグ「${identifier}」用のコンテンツファイル ${slugSpecificFile} を使用します`);
   } 
   // 2. IDベースのファイルを検索
@@ -32,19 +45,47 @@ try {
     if (fs.existsSync(idSpecificFile)) {
       contentFile = idSpecificFile;
       fileFound = true;
-      // マッピング情報からスラッグを取得
-      if (idSlugMap[identifier]) {
-        actualSlug = idSlugMap[identifier];
+      
+      // スラッグ情報がまだ取得できていなければ、ファイル名からスラッグを推測
+      // スラッグ情報がすでにマッピングから取得されていれば、それを優先
+      if (slugForFile === 'sample' && fs.existsSync(`content-${actualSlug}.json`)) {
+        // コンテンツディレクトリ内の全ファイルを取得
+        const files = fs.readdirSync('./');
+        
+        // スラッグファイルパターンを検索
+        const slugPattern = /^content-([^-]+)\.json$/;
+        for (const file of files) {
+          const match = file.match(slugPattern);
+          if (match && match[1] !== 'id') {
+            // content.jsonファイルの内容を取得
+            try {
+              const testContent = JSON.parse(fs.readFileSync(file, 'utf-8'));
+              const idContent = JSON.parse(fs.readFileSync(idSpecificFile, 'utf-8'));
+              
+              // タイトルが一致するか確認
+              if (testContent.title === idContent.title) {
+                // スラッグを抽出
+                slugForFile = match[1];
+                actualSlug = slugForFile;
+                console.log(`📄 コンテンツ一致により「${identifier}」に対応するスラッグ「${slugForFile}」を特定しました`);
+                break;
+              }
+            } catch (e) {
+              // ファイル読み込みエラーは無視
+            }
+          }
+        }
       }
+      
       console.log(`📄 ページID「${identifier}」用のコンテンツファイル ${idSpecificFile} を使用します`);
+      console.log(`📄 PDF生成には スラッグ「${slugForFile}」を使用します`);
     }
     // 3. マッピング情報から対応するスラッグを取得してファイルを検索
-    else if (idSlugMap[identifier]) {
-      const mappedSlug = idSlugMap[identifier];
-      const mappedFile = `content-${mappedSlug}.json`;
+    else if (slugForFile !== 'sample') {
+      const mappedFile = `content-${slugForFile}.json`;
       if (fs.existsSync(mappedFile)) {
         contentFile = mappedFile;
-        actualSlug = mappedSlug;
+        actualSlug = slugForFile;
         fileFound = true;
         console.log(`📄 マッピング情報から「${identifier}」に対応するファイル ${mappedFile} を使用します`);
       }
@@ -54,6 +95,8 @@ try {
   // ファイルが見つからない場合はデフォルトを使用
   if (!fileFound) {
     console.log(`📄 「${identifier}」用のコンテンツファイルが見つからないため、デフォルトの ${contentFile} を使用します`);
+    // デフォルトの場合は識別子をスラッグとして使用
+    slugForFile = identifier;
   }
 
   // Load raw ACF data (flat structure)
@@ -91,15 +134,23 @@ try {
   execSync('./node_modules/.bin/tailwindcss -i ./src/input.css -o ./dist/output.css', { stdio: 'inherit' });
   console.log('✅ Tailwind CSS built');
 
-  // 常に実際のスラッグを使用してPDFファイルを生成
-  const pdfFilename = `booklet-${actualSlug}.pdf`;
+  // 常に取得したスラッグを使用してPDFファイルを生成
+  const pdfFilename = `booklet-${slugForFile}.pdf`;
+  console.log(`🔍 PDFファイル名: ${pdfFilename} でビルドします`);
   execSync(`./node_modules/.bin/vivliostyle build index.html -o ${pdfFilename} --no-sandbox`, { stdio: 'inherit' });
   console.log(`✅ PDF generated: ${pdfFilename}`);
 
+  // 念のため識別子が数値（ID）の場合はファイルをコピー
+  if (/^\d+$/.test(identifier) && slugForFile !== identifier) {
+    const idPdfFilename = `booklet-${identifier}.pdf`;
+    fs.copyFileSync(pdfFilename, idPdfFilename);
+    console.log(`✅ 互換性のためページIDを使用したファイルも作成: ${idPdfFilename}`);
+  }
+
   // 環境変数SLUGを設定してGitHub Actionsに実際のスラッグを伝える（可能な場合）
   if (process.env.GITHUB_ENV) {
-    fs.appendFileSync(process.env.GITHUB_ENV, `SLUG=${actualSlug}\n`);
-    console.log(`✅ GitHub Actions環境変数SLUGを${actualSlug}に設定しました`);
+    fs.appendFileSync(process.env.GITHUB_ENV, `SLUG=${slugForFile}\n`);
+    console.log(`✅ GitHub Actions環境変数SLUGを${slugForFile}に設定しました`);
   }
 
 } catch (error) {
