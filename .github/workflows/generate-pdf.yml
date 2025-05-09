@@ -44,14 +44,6 @@ jobs:
           echo "使用するスラッグ: $TARGET_SLUG"
           echo "target_slug=$TARGET_SLUG" >> $GITHUB_OUTPUT
 
-      - name: Check JWT token
-        env:
-          WP_URL: "http://kazumanishiwaki.net/ks"
-          WP_JWT: ${{ secrets.WP_JWT }}
-        run: |
-          echo "JWTトークン検証を実行します..."
-          node scripts/test-jwt.js
-          
       - name: Fetch latest data from WordPress
         env:
           WP_PAGE_IDS: ${{ github.event.inputs.wp_post_ids }}
@@ -59,22 +51,11 @@ jobs:
         run: |
           echo "WordPressからデータを取得中..."
           # 明示的にWP_URLを設定
-          export WP_URL="http://kazumanishiwaki.net/ks"
-          
-          # JWTが設定されているか確認（セキュリティのため内容は表示しない）
-          if [ -n "$WP_JWT" ]; then
-            echo "JWT認証トークンが設定されています"
-          else
-            echo "警告: JWT認証トークンが設定されていません"
-          fi
-          
-          # テスト用に一時的にBasic認証を試す（必要に応じて）
-          # export WP_BASIC_AUTH="username:password"
-          
+          export WP_URL="https://kazumanishiwaki.net/ks"
           node scripts/fetch-acf.js
           echo "データ取得完了"
-          ls -la content*.json || echo "JSONファイルが生成されませんでした"
-          cat content.json 2>/dev/null || echo "content.jsonファイルが見つかりません"
+          ls -la content*.json
+          cat content.json | jq
 
       - name: Build PDF
         env:
