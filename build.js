@@ -2,19 +2,58 @@ import fs from 'fs';
 import ejs from 'ejs';
 import { execSync } from 'child_process';
 
-// slugの取得（GitHub Actionsで使用）
-const slug = process.env.SLUG || 'sample';
+// スラッグまたはページIDの取得（GitHub Actionsで使用）
+const identifier = process.env.SLUG || process.env.PAGE_ID || 'sample';
 
 try {
-  // コンテンツファイルの決定（スラッグ指定のJSONファイルがあれば使用、なければデフォルトのcontent.json）
+  // IDとスラッグのマッピング情報を読み込み
+  let idSlugMap = {};
+  if (fs.existsSync('id-slug-map.json')) {
+    idSlugMap = JSON.parse(fs.readFileSync('id-slug-map.json', 'utf-8'));
+  } else {
+    console.log('⚠️ ID-スラッグマッピング情報が見つかりません。直接ファイル検索を行います。');
+  }
+
+  // コンテンツファイルの決定
   let contentFile = 'content.json';
-  const slugSpecificFile = `content-${slug}.json`;
-  
+  let fileFound = false;
+  let actualSlug = identifier;
+
+  // 1. スラッグベースのファイルを検索
+  const slugSpecificFile = `content-${identifier}.json`;
   if (fs.existsSync(slugSpecificFile)) {
     contentFile = slugSpecificFile;
-    console.log(`📄 スラッグ「${slug}」用のコンテンツファイル ${slugSpecificFile} を使用します`);
-  } else {
-    console.log(`📄 スラッグ「${slug}」用のコンテンツファイルが見つからないため、デフォルトの ${contentFile} を使用します`);
+    fileFound = true;
+    console.log(`📄 スラッグ「${identifier}」用のコンテンツファイル ${slugSpecificFile} を使用します`);
+  } 
+  // 2. IDベースのファイルを検索
+  else {
+    const idSpecificFile = `content-id-${identifier}.json`;
+    if (fs.existsSync(idSpecificFile)) {
+      contentFile = idSpecificFile;
+      fileFound = true;
+      // マッピング情報からスラッグを取得
+      if (idSlugMap[identifier]) {
+        actualSlug = idSlugMap[identifier];
+      }
+      console.log(`📄 ページID「${identifier}」用のコンテンツファイル ${idSpecificFile} を使用します`);
+    }
+    // 3. マッピング情報から対応するスラッグを取得してファイルを検索
+    else if (idSlugMap[identifier]) {
+      const mappedSlug = idSlugMap[identifier];
+      const mappedFile = `content-${mappedSlug}.json`;
+      if (fs.existsSync(mappedFile)) {
+        contentFile = mappedFile;
+        actualSlug = mappedSlug;
+        fileFound = true;
+        console.log(`📄 マッピング情報から「${identifier}」に対応するファイル ${mappedFile} を使用します`);
+      }
+    }
+  }
+
+  // ファイルが見つからない場合はデフォルトを使用
+  if (!fileFound) {
+    console.log(`📄 「${identifier}」用のコンテンツファイルが見つからないため、デフォルトの ${contentFile} を使用します`);
   }
 
   // Load raw ACF data (flat structure)
@@ -46,15 +85,15 @@ try {
 
   // Write HTML
   fs.writeFileSync('index.html', html);
-  console.log(`✅ index.html generated for slug: ${slug} (ACF free build)`);
+  console.log(`✅ index.html generated for identifier: ${identifier} (ACF free build)`);
 
   // Tailwind CSSのビルド
   execSync('./node_modules/.bin/tailwindcss -i ./src/input.css -o ./dist/output.css', { stdio: 'inherit' });
   console.log('✅ Tailwind CSS built');
 
-  // VivliostyleでPDFを生成
-  execSync(`./node_modules/.bin/vivliostyle build index.html -o booklet-${slug}.pdf --no-sandbox`, { stdio: 'inherit' });
-  console.log(`✅ PDF generated: booklet-${slug}.pdf`);
+  // VivliostyleでPDFを生成（実際のスラッグを使用）
+  execSync(`./node_modules/.bin/vivliostyle build index.html -o booklet-${actualSlug}.pdf --no-sandbox`, { stdio: 'inherit' });
+  console.log(`✅ PDF generated: booklet-${actualSlug}.pdf`);
 
 } catch (error) {
   console.error('Error:', error);

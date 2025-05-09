@@ -86,6 +86,7 @@ async function fetchPageData(pageId) {
   
   // スラッグとACFデータを返す
   return {
+    id: data.id,
     slug: data.slug,
     acf: data.acf || {}
   };
@@ -96,14 +97,26 @@ async function fetchACFData() {
     const pageIds = getPageIds();
     console.log(`🔍 ${pageIds.length}個のページからACFデータを取得します...`);
     
+    // ページIDとスラッグのマッピング情報を保存するためのオブジェクト
+    const idSlugMap = {};
+    
     for (const pageId of pageIds) {
       const pageData = await fetchPageData(pageId);
-      const { slug, acf } = pageData;
+      const { id, slug, acf } = pageData;
+      
+      // マッピング情報を追加
+      idSlugMap[id] = slug;
+      idSlugMap[slug] = id;
       
       // content-{slug}.jsonとして保存
       const outputFile = `content-${slug}.json`;
       fs.writeFileSync(outputFile, JSON.stringify(acf, null, 2));
       console.log(`✅ ${pageId}(${slug})のACFデータを${outputFile}に保存しました`);
+      
+      // ID用のファイルも作成
+      const idOutputFile = `content-id-${id}.json`;
+      fs.writeFileSync(idOutputFile, JSON.stringify(acf, null, 2));
+      console.log(`✅ ID参照用に${idOutputFile}も作成しました`);
       
       // 後方互換性のために、最初のページデータはcontent.jsonにも保存
       if (pageIds.indexOf(pageId) === 0) {
@@ -111,6 +124,11 @@ async function fetchACFData() {
         console.log(`✅ 互換性のため最初のページのデータをcontent.jsonにも保存しました`);
       }
     }
+    
+    // ID-スラッグのマッピング情報を保存
+    fs.writeFileSync('id-slug-map.json', JSON.stringify(idSlugMap, null, 2));
+    console.log('✅ ID-スラッグマッピング情報をid-slug-map.jsonに保存しました');
+    
   } catch (error) {
     console.error('Error fetching ACF data:', error);
     process.exit(1);
