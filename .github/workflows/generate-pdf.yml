@@ -95,7 +95,7 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./
-          server-dir: /wp-content/uploads/pdf-booklet/
+          server-dir: kazumanishiwaki.net/public_html/ks/wp-content/uploads/pdf-booklet/
           exclude: |
             **/*
             !${{ steps.build-pdf.outputs.pdf_file }}
@@ -111,12 +111,11 @@ jobs:
           echo "==================================================================="
           echo "📦 ファイル名: $PDF_FILENAME"
           echo "📊 ファイルサイズ: $PDF_SIZE"
-          echo "🌐 アップロード先FTPパス: /wp-content/uploads/pdf-booklet/$PDF_FILENAME"
+          echo "🌐 アップロード先FTPパス: kazumanishiwaki.net/public_html/ks/wp-content/uploads/pdf-booklet/$PDF_FILENAME"
           
           # WordPressサイト上のURL
           WP_BASE_URL="https://kazumanishiwaki.net/ks"
-          UPLOAD_PATH="kazumanishiwaki.net/public_html/ks/wp-content/uploads/pdf-booklet"
-          echo "🔍 WordPressアクセスURL: $WP_BASE_URL/$UPLOAD_PATH/$PDF_FILENAME"
+          echo "🔍 WordPressアクセスURL: $WP_BASE_URL/wp-content/uploads/pdf-booklet/$PDF_FILENAME"
           echo "==================================================================="
       
       - name: Notify WordPress with Run ID
