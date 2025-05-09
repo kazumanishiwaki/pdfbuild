@@ -51,7 +51,7 @@ jobs:
         run: |
           echo "WordPressからデータを取得中..."
           # 明示的にWP_URLを設定
-          export WP_URL="https://kazumanishiwaki.net/ks"
+          export WP_URL="${{ secrets.WP_URL }}"
           node scripts/fetch-acf.js
           echo "データ取得完了"
           ls -la content*.json
@@ -62,13 +62,25 @@ jobs:
           SLUG: ${{ steps.set-slug.outputs.target_slug }}
         run: node build.js
 
-      - name: Upload PDF
+      - name: Upload PDF to GitHub Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: booklet
           path: booklet-${{ steps.set-slug.outputs.target_slug }}.pdf
-          retention-days: 14    
+          retention-days: 14
 
+      - name: Upload PDF to WordPress Server via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./
+          server-dir: ${{ secrets.FTP_DESTINATION_PATH }}
+          include: |
+            booklet-${{ steps.set-slug.outputs.target_slug }}.pdf
+          dangerous-clean-slate: false
+          
       - name: Notify WordPress with Run ID
         env:
           WEBHOOK: ${{ secrets.WP_WEBHOOK_URL }}
@@ -76,4 +88,4 @@ jobs:
         run: |
           curl -X POST "$WEBHOOK" \
           -H "Content-Type: application/json" \
-          -d "{\"run_id\": \"${{ github.run_id }}\", \"post_id\": \"$POST_ID\"}"
+          -d "{\"run_id\": \"${{ github.run_id }}\", \"post_id\": \"$POST_ID\", \"pdf_uploaded\": true}"
