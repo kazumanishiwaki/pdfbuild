@@ -75,8 +75,16 @@ jobs:
           echo "検出されたPDFファイル: $ACTUAL_PDF_FILENAME"
           echo "pdf_file=$ACTUAL_PDF_FILENAME" >> $GITHUB_OUTPUT
           
+          # booklet-なしの新しいファイル名を作成（接頭語を削除）
+          NEW_FILENAME="${ACTUAL_PDF_FILENAME#booklet-}"
+          echo "新しいファイル名: $NEW_FILENAME"
+          echo "new_pdf_file=$NEW_FILENAME" >> $GITHUB_OUTPUT
+          
+          # ファイルをコピー
+          cp "$ACTUAL_PDF_FILENAME" "$NEW_FILENAME"
+          
           # ファイルサイズを取得して人間が読める形式で表示
-          FILE_SIZE=$(stat -c%s "$ACTUAL_PDF_FILENAME")
+          FILE_SIZE=$(stat -c%s "$NEW_FILENAME")
           FILE_SIZE_HUMAN=$(numfmt --to=iec --suffix=B $FILE_SIZE)
           echo "pdf_size=$FILE_SIZE_HUMAN" >> $GITHUB_OUTPUT
 
@@ -84,7 +92,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: booklet
-          path: ${{ steps.build-pdf.outputs.pdf_file }}
+          path: ${{ steps.build-pdf.outputs.new_pdf_file }}
           retention-days: 14
 
       - name: Upload PDF to WordPress Server via FTP
@@ -98,12 +106,12 @@ jobs:
           server-dir: kazumanishiwaki.net/public_html/ks/wp-content/uploads/pdf-booklet/
           exclude: |
             **/*
-            !${{ steps.build-pdf.outputs.pdf_file }}
+            !${{ steps.build-pdf.outputs.new_pdf_file }}
           dangerous-clean-slate: false
           
       - name: Display Upload Information
         env:
-          PDF_FILENAME: ${{ steps.build-pdf.outputs.pdf_file }}
+          PDF_FILENAME: ${{ steps.build-pdf.outputs.new_pdf_file }}
           PDF_SIZE: ${{ steps.build-pdf.outputs.pdf_size }}
         run: |
           echo "==================================================================="
@@ -122,7 +130,8 @@ jobs:
         env:
           WEBHOOK: ${{ secrets.WP_WEBHOOK_URL }}
           POST_ID: ${{ steps.set-slug.outputs.target_slug }}
+          PDF_FILENAME: ${{ steps.build-pdf.outputs.new_pdf_file }}
         run: |
           curl -X POST "$WEBHOOK" \
           -H "Content-Type: application/json" \
-          -d "{\"run_id\": \"${{ github.run_id }}\", \"post_id\": \"$POST_ID\", \"pdf_uploaded\": true, \"pdf_filename\": \"${{ steps.build-pdf.outputs.pdf_file }}\"}"
+          -d "{\"run_id\": \"${{ github.run_id }}\", \"post_id\": \"$POST_ID\", \"pdf_uploaded\": true, \"pdf_filename\": \"$PDF_FILENAME\"}"
