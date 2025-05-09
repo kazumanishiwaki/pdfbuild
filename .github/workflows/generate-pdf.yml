@@ -58,9 +58,18 @@ jobs:
           cat content.json | jq
 
       - name: Build PDF
+        id: build-pdf
         env:
           SLUG: ${{ steps.set-slug.outputs.target_slug }}
-        run: node build.js
+        run: |
+          node build.js
+          # 生成されたPDFのファイル名を出力
+          PDF_FILENAME="booklet-${{ steps.set-slug.outputs.target_slug }}.pdf"
+          echo "pdf_file=$PDF_FILENAME" >> $GITHUB_OUTPUT
+          # ファイルサイズを取得して人間が読める形式で表示
+          FILE_SIZE=$(stat -c%s "$PDF_FILENAME")
+          FILE_SIZE_HUMAN=$(numfmt --to=iec --suffix=B $FILE_SIZE)
+          echo "pdf_size=$FILE_SIZE_HUMAN" >> $GITHUB_OUTPUT
 
       - name: Upload PDF to GitHub Artifacts
         uses: actions/upload-artifact@v4
@@ -70,6 +79,7 @@ jobs:
           retention-days: 14
 
       - name: Upload PDF to WordPress Server via FTP
+        id: ftp-upload
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -82,6 +92,26 @@ jobs:
             !booklet-${{ steps.set-slug.outputs.target_slug }}.pdf
           dangerous-clean-slate: false
           
+      - name: Display Upload Information
+        env:
+          PDF_FILENAME: ${{ steps.build-pdf.outputs.pdf_file }}
+          PDF_SIZE: ${{ steps.build-pdf.outputs.pdf_size }}
+          WP_URL: ${{ secrets.WP_URL }}
+          FTP_PATH: ${{ secrets.FTP_DESTINATION_PATH }}
+        run: |
+          echo "==================================================================="
+          echo "📄 PDF情報"
+          echo "==================================================================="
+          echo "📦 ファイル名: $PDF_FILENAME"
+          echo "📊 ファイルサイズ: $PDF_SIZE"
+          echo "🌐 アップロード先FTPパス: $FTP_PATH/$PDF_FILENAME"
+          
+          # WordPressサイト上のURLを推測
+          # FTPパスが「/wp-content/uploads/pdf-booklet/」のような形式を想定
+          UPLOAD_DIR_PATH=$(echo "$FTP_PATH" | sed -e 's/^\/*//' -e 's/\/*$//')
+          echo "🔍 推定WordPressアクセスURL: $WP_URL/$UPLOAD_DIR_PATH/$PDF_FILENAME"
+          echo "==================================================================="
+      
       - name: Notify WordPress with Run ID
         env:
           WEBHOOK: ${{ secrets.WP_WEBHOOK_URL }}
@@ -89,4 +119,4 @@ jobs:
         run: |
           curl -X POST "$WEBHOOK" \
           -H "Content-Type: application/json" \
-          -d "{\"run_id\": \"${{ github.run_id }}\", \"post_id\": \"$POST_ID\", \"pdf_uploaded\": true}"
+          -d "{\"run_id\": \"${{ github.run_id }}\", \"post_id\": \"$POST_ID\", \"pdf_uploaded\": true, \"pdf_filename\": \"${{ steps.build-pdf.outputs.pdf_file }}\"}"
