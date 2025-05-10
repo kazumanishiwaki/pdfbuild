@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link href="./dist/output.css" rel="stylesheet">
+  <style>
+    @page {
+      size: A4 landscape;
+      margin: 10mm;
+    }
+ 
+    :root {
+      --base-font-size: 8pt;
+      --title-font-size: 16pt;
+      --content-font-size: 9pt;
+      --caption-font-size: 7pt;
+      --block-gap: 1.5rem;
+      --block-margin: 0.5rem;
+      --title-margin-bottom: 1.5rem;
+      --photo-margin-bottom: 0.5rem;
+      --photo-block-gap: 2rem;
+    }
+    body, .content, .caption, .title {
+      hanging-punctuation: allow-end;
+      text-spacing: ideograph-alpha ideograph-numeric;
+      font-feature-settings: "palt" 1, "pkna" 1;
+      text-wrap: pretty;
+    }
+    body {
+      font-size: var(--base-font-size);
+      margin: 0;
+      box-sizing: border-box;
+      font-family: serif;
+      color: black !important;
+    }
+    .title {
+      font-size: var(--title-font-size);
+      font-weight: bold;
+      margin-bottom: var(--title-margin-bottom);
+    }
+    .content {
+      font-size: var(--content-font-size);
+      line-height: 1.6;
+      text-align: justify;
+    }
+    .main-cols {
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      height: 100%;
+      gap: 2.5rem;
+      align-items: flex-start;
+    }
+    .col {
+      flex: 1 1 0;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    .photo-blocks {
+      display: flex;
+      flex-direction: column;
+      gap: var(--photo-block-gap);
+      height: 100%;
+      justify-content: space-between;
+    }
+    .photo-block {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+    }
+    .photo {
+      width: 100%;
+      height: auto;
+      overflow: hidden;
+      margin-bottom: var(--photo-margin-bottom);
+    }
+    .photo img {
+      width: 100%;
+      height: auto;
+      object-fit: cover;
+      display: block;
+    }
+    .caption {
+      font-size: var(--caption-font-size);
+      line-height: 1.4;
+    }
+  </style>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP&display=swap">
+<style>
+body, .text-black, .caption, .content {
+  font-family: 'Noto Serif JP', serif !important;
+  color: #000 !important;
+}
+</style>
+
+</head>
+<body>
+  <div class="main-cols">
+    <!-- 左カラム -->
+    <div class="col">
+      <!-- タイトル -->
+      <div class="title text-black"><%= title || 'タイトル未設定' %></div>
+      <!-- 本文 -->
+      <div class="content text-black"><%= content %></div>
+    </div>
+    <!-- 右カラム -->
+    <div class="col">
+      <div class="photo-blocks">
+        <!-- 写真ブロック1 -->
+        <div class="photo-block">
+          <div class="photo">
+            <img src="<%= photo1 %>" alt="<%= caption1 %>">
+          </div>
+          <div class="caption text-black"><%= caption1 %></div>
+        </div>
+        <!-- 写真ブロック2 -->
+        <div class="photo-block">
+          <div class="photo">
+            <img src="<%= photo2 %>" alt="<%= caption2 %>">
+          </div>
+          <div class="caption text-black"><%= caption2 %></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html> 
