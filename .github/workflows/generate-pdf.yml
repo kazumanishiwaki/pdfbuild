@@ -11,6 +11,10 @@ on:
         description: 'ビルド対象のスラッグ（指定がなければ最初のIDを使用）'
         required: false
         default: ''
+      template_type:
+        description: 'テンプレートタイプ（例: peoplelist, text-photo2）。指定なしの場合は自動検出'
+        required: false
+        default: ''
 
 jobs:
   build:
@@ -43,6 +47,13 @@ jobs:
           fi
           echo "使用するスラッグ: $TARGET_SLUG"
           echo "target_slug=$TARGET_SLUG" >> $GITHUB_OUTPUT
+          
+          # テンプレートタイプの設定（指定されていれば）
+          TEMPLATE_TYPE="${{ github.event.inputs.template_type }}"
+          if [ ! -z "$TEMPLATE_TYPE" ]; then
+            echo "テンプレートタイプ: $TEMPLATE_TYPE"
+            echo "template_type=$TEMPLATE_TYPE" >> $GITHUB_OUTPUT
+          fi
 
       - name: Fetch latest data from WordPress
         env:
@@ -57,10 +68,17 @@ jobs:
           ls -la content*.json
           cat content.json | jq
 
+      - name: List available templates
+        run: |
+          echo "利用可能なテンプレート一覧:"
+          ls -la templates/*.ejs
+          echo ""
+
       - name: Build PDF
         id: build-pdf
         env:
           SLUG: ${{ steps.set-slug.outputs.target_slug }}
+          TEMPLATE_TYPE: ${{ steps.set-slug.outputs.template_type }}
         run: |
           node build.js
           
