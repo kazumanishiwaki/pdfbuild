@@ -1,16 +1,14 @@
 {
-  "name": "pdf-booklet-build-kit",
-  "version": "1.0.0",
+  "name": "pdf-booklet-refactor",
+  "private": true,
   "type": "module",
   "scripts": {
-    "build": "node build.js",
-    "build:local": "node scripts/fetch-acf.js && node build.js"
+    "fetch": "node scripts/fetch-acf.js",
+    "build:one": "node scripts/build-single.js",
+    "build:all": "node scripts/build-batch.js"
   },
   "dependencies": {
-    "@vivliostyle/cli": "^9.0.2",
-    "dotenv": "^16.4.5",
     "ejs": "^3.1.9",
-    "node-fetch": "^3.3.2",
-    "tailwindcss": "^3.4.1"
+    "p-limit": "^5.0.0"
   }
 }
