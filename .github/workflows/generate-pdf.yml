@@ -1,155 +1,146 @@
-name: Generate PDF
+name: Generate PDF Booklets
 
 on:
   workflow_dispatch:
     inputs:
       wp_post_ids:
-        description: 'WordPress投稿ID（複数の場合はカンマ区切り）'
+        description: 'WordPress ページ/投稿ID（カンマ区切り: 123,456,789）'
         required: true
-        default: ''
-      target_slug:
-        description: 'ビルド対象のスラッグ（指定がなければ最初のIDを使用）'
-        required: false
-        default: ''
       template_type:
-        description: 'テンプレートタイプ（例: peoplelist, text-photo2）。指定なしの場合は自動検出'
+        description: 'テンプレートタイプ（空なら自動判定）'
         required: false
         default: ''
+      concurrency:
+        description: 'PDF 同時生成数（Vivliostyle安定のため 2〜3 推奨）'
+        required: false
+        default: '2'
+      skip_schema:
+        description: 'スキーマ検証をスキップ（1/true でスキップ）'
+        required: false
+        default: '0'
+  # 任意: 定期実行したい場合は有効化
+  # schedule:
+  #   - cron: '0 3 * * *'   # JSTで正午にしたければ '0 3 * * *'（GitHubはUTC）
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # WordPress 接続先（Secretsに保存）
+      WP_URL: ${{ secrets.WP_URL }}
+      # WP_USER / WP_PASS は「必要時のみ」JWT発行に使う（公開ページだけなら不要）
+      WP_USER: ${{ secrets.WP_USER }}
+      WP_PASS: ${{ secrets.WP_PASS }}
+
+      # ビルド設定
+      ON_ERROR: "continue"                         # 失敗ページがあっても続行（fetch-acf.js対応）
+      CONCURRENCY: ${{ github.event.inputs.concurrency }}
+      TEMPLATE_TYPE: ${{ github.event.inputs.template_type }}
+      SKIP_SCHEMA: ${{ github.event.inputs.skip_schema }}
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'          
+          node-version: '20'
+          cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install deps
         run: npm ci
 
-      - name: Set build slug
-        id: set-slug
+      - name: Issue JWT if needed
+        shell: bash
         run: |
-          TARGET_SLUG="${{ github.event.inputs.target_slug }}"
-          if [ -z "$TARGET_SLUG" ]; then
-            # ターゲットスラッグが指定されていない場合は、最初のIDを使用
-            IDS="${{ github.event.inputs.wp_post_ids }}"
-            FIRST_ID=$(echo $IDS | cut -d ',' -f1)
-            TARGET_SLUG=$FIRST_ID
-          fi
-          echo "使用するスラッグ: $TARGET_SLUG"
-          echo "target_slug=$TARGET_SLUG" >> $GITHUB_OUTPUT
-          
-          # テンプレートタイプの設定（指定されていれば）
-          TEMPLATE_TYPE="${{ github.event.inputs.template_type }}"
-          if [ ! -z "$TEMPLATE_TYPE" ]; then
-            echo "テンプレートタイプ: $TEMPLATE_TYPE"
-            echo "template_type=$TEMPLATE_TYPE" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          if [[ -n "${WP_USER:-}" && -n "${WP_PASS:-}" ]]; then
+            echo "🔐 Try issuing JWT..."
+            RESP=$(curl -sS -X POST "$WP_URL/wp-json/jwt-auth/v1/token" \
+              -H "Content-Type: application/json" \
+              -d "{\"username\":\"$WP_USER\",\"password\":\"$WP_PASS\"}") || true
+            TOKEN=$(echo "$RESP" | jq -r '.token // empty')
+            if [[ -n "$TOKEN" ]]; then
+              echo "WP_JWT=$TOKEN" >> "$GITHUB_ENV"
+              echo "✅ JWT issued"
+            else
+              echo "⚠️ JWT not issued (will try without Authorization if possible)"
+            fi
+          else
+            echo "ℹ️ No WP_USER/WP_PASS provided. Will call API without JWT."
           fi
 
-      - name: Fetch latest data from WordPress
+      - name: Fetch ACF JSONs
         env:
           WP_PAGE_IDS: ${{ github.event.inputs.wp_post_ids }}
-          WP_JWT: ${{ secrets.WP_JWT }}
         run: |
-          echo "WordPressからデータを取得中..."
-          # 明示的にWP_URLを設定
-          export WP_URL="${{ secrets.WP_URL }}"
-          node scripts/fetch-acf.js
-          echo "データ取得完了"
-          ls -la content*.json
-          cat content.json | jq
+          set -euo pipefail
+          echo "🔎 Fetch ACF for: $WP_PAGE_IDS"
+          # scripts/fetch-acf.js（分割版） or ルート直下の fetch-acf.js（単体版）のどちらにも対応
+          if [ -f scripts/fetch-acf.js ]; then
+            node scripts/fetch-acf.js "$WP_PAGE_IDS"
+          else
+            node fetch-acf.js "$WP_PAGE_IDS"
+          fi
+          ls -1 content-*.json id-slug-map.json
 
-      - name: List available templates
+      - name: Build PDFs (batch)
         run: |
-          echo "利用可能なテンプレート一覧:"
-          ls -la templates/*.ejs
-          echo ""
+          set -euo pipefail
+          # まず Tailwind を一度だけビルド（存在する場合のみ）
+          if [ -f ./node_modules/.bin/tailwindcss ] && [ -f ./src/input.css ]; then
+            ./node_modules/.bin/tailwindcss -i ./src/input.css -o ./dist/output.css
+          fi
 
-      - name: Build PDF
-        id: build-pdf
-        env:
-          SLUG: ${{ steps.set-slug.outputs.target_slug }}
-          TEMPLATE_TYPE: ${{ steps.set-slug.outputs.template_type }}
-        run: |
-          node build.js
-          
-          # 実際に生成されたPDFファイルを見つける
-          echo "ビルドディレクトリ内のPDFファイル:"
-          find . -type f -name "*.pdf" | sort
-          
-          # スラッグベースのファイル名を優先
-          ACTUAL_PDF_FILENAME=$(find . -type f -name "booklet-*.pdf" | head -n 1)
-          ACTUAL_PDF_FILENAME=$(basename "$ACTUAL_PDF_FILENAME")
-          
-          echo "検出されたPDFファイル: $ACTUAL_PDF_FILENAME"
-          echo "pdf_file=$ACTUAL_PDF_FILENAME" >> $GITHUB_OUTPUT
-          
-          # booklet-なしの新しいファイル名を作成（接頭語を削除）
-          NEW_FILENAME="${ACTUAL_PDF_FILENAME#booklet-}"
-          echo "新しいファイル名: $NEW_FILENAME"
-          echo "new_pdf_file=$NEW_FILENAME" >> $GITHUB_OUTPUT
-          
-          # ファイルをコピー
-          cp "$ACTUAL_PDF_FILENAME" "$NEW_FILENAME"
-          
-          # ファイルサイズを取得して人間が読める形式で表示
-          FILE_SIZE=$(stat -c%s "$NEW_FILENAME")
-          FILE_SIZE_HUMAN=$(numfmt --to=iec --suffix=B $FILE_SIZE)
-          echo "pdf_size=$FILE_SIZE_HUMAN" >> $GITHUB_OUTPUT
+          if [ -f scripts/build-batch.js ]; then
+            # 分割版（推奨構成）
+            node scripts/build-batch.js
+          else
+            # 既存単体 build.js を並列制御で回すフォールバック
+            test -f id-slug-map.json
+            SLUGS=$(jq -r 'to_entries[] | select(.key|test("^[0-9]+$")|not) | .key' id-slug-map.json)
+            echo "🧾 Slugs: $SLUGS"
+            i=0; max="${CONCURRENCY:-2}"; pids=()
+            for slug in $SLUGS; do
+              (
+                export TEMPLATE_TYPE
+                export SLUG="$slug"   # build.js が SLUG or PAGE_ID を読む想定
+                node build.js
+              ) &
+              pids+=($!)
+              i=$((i+1))
+              if [ "$i" -ge "$max" ]; then
+                wait -n || true
+                i=$((i-1))
+              fi
+            done
+            for pid in "${pids[@]}"; do wait "$pid" || true; done
+          fi
 
-      - name: Upload PDF to GitHub Artifacts
+      - name: List PDFs
+        run: ls -lah booklet-*.pdf || echo "no PDFs?"
+
+      - name: Upload PDFs (artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: booklet
-          path: ${{ steps.build-pdf.outputs.new_pdf_file }}
-          retention-days: 14
+          name: pdf-booklets
+          path: |
+            booklet-*.pdf
+          if-no-files-found: warn
+          retention-days: 7
 
-      - name: Upload PDF to WordPress Server via FTP
-        id: ftp-upload
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./
-          server-dir: kazumanishiwaki.net/public_html/ks/wp-content/uploads/pdf-booklet/
-          exclude: |
-            **/*
-            !${{ steps.build-pdf.outputs.new_pdf_file }}
-          dangerous-clean-slate: false
-          
-      - name: Display Upload Information
-        env:
-          PDF_FILENAME: ${{ steps.build-pdf.outputs.new_pdf_file }}
-          PDF_SIZE: ${{ steps.build-pdf.outputs.pdf_size }}
-        run: |
-          echo "==================================================================="
-          echo "📄 PDF情報"
-          echo "==================================================================="
-          echo "📦 ファイル名: $PDF_FILENAME"
-          echo "📊 ファイルサイズ: $PDF_SIZE"
-          echo "🌐 アップロード先FTPパス: kazumanishiwaki.net/public_html/ks/wp-content/uploads/pdf-booklet/$PDF_FILENAME"
-          
-          # WordPressサイト上のURL
-          WP_BASE_URL="https://kazumanishiwaki.net/ks"
-          echo "🔍 WordPressアクセスURL: $WP_BASE_URL/wp-content/uploads/pdf-booklet/$PDF_FILENAME"
-          echo "==================================================================="
-      
-      - name: Notify WordPress with Run ID
+      # 任意: S3/R2/SFTP などの配布先へアップロードが必要なら、ここに追加
+
+      - name: Notify WordPress (webhook) - optional
+        if: ${{ secrets.WP_WEBHOOK_URL != '' }}
         env:
           WEBHOOK: ${{ secrets.WP_WEBHOOK_URL }}
-          POST_ID: ${{ steps.set-slug.outputs.target_slug }}
-          PDF_FILENAME: ${{ steps.build-pdf.outputs.new_pdf_file }}
+          RUN_ID: ${{ github.run_id }}
         run: |
-          curl -X POST "$WEBHOOK" \
-          -H "Content-Type: application/json" \
-          -d "{\"run_id\": \"${{ github.run_id }}\", \"post_id\": \"$POST_ID\", \"pdf_uploaded\": true, \"pdf_filename\": \"$PDF_FILENAME\"}"
+          set -euo pipefail
+          FILES=$(ls -1 booklet-*.pdf 2>/dev/null | jq -R . | jq -s .)
+          curl -sS -X POST "$WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d "{\"run_id\":\"$RUN_ID\",\"files\":$FILES}"
+          echo "📣 Notified: $WEBHOOK"
