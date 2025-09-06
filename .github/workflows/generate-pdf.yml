@@ -177,7 +177,8 @@ jobs:
           password: ${{ env.FTP_PASSWORD }}
           protocol: ftp
           local-dir: deploy/
-          server-dir: ${{ env.FTP_DESTINATION_PATH }}
+          # Ensure trailing slash to satisfy the action's requirement
+          server-dir: ${{ env.FTP_DESTINATION_PATH }}/
 
       - name: Upload PDFs (artifact)
         uses: actions/upload-artifact@v4
