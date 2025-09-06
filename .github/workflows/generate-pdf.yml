@@ -248,10 +248,18 @@ jobs:
         run: |
           set -euo pipefail
           ID="${TARGET_SLUG}"
+          TARGET_FILE="out/booklet-${ID}.pdf"
+          
+          # 生成されたPDFファイルを探す
           FIRST=$(ls -1 out/booklet-*.pdf 2>/dev/null | head -n1 || true)
           if [ -n "${FIRST}" ]; then
-            cp "${FIRST}" "out/booklet-${ID}.pdf"
-            echo "📄 Renamed to out/booklet-${ID}.pdf"
+            # 同じファイル名でない場合のみコピー（上書き）
+            if [ "${FIRST}" != "${TARGET_FILE}" ]; then
+              cp "${FIRST}" "${TARGET_FILE}"
+              echo "📄 Copied ${FIRST} to ${TARGET_FILE}"
+            else
+              echo "✅ File already has correct name: ${TARGET_FILE}"
+            fi
           else
             echo "⚠️ No PDF found to normalize."
           fi
