@@ -28,6 +28,7 @@ on:
         default: '0'
 
 jobs:
+
   build:
     runs-on: ubuntu-latest
     env:
@@ -70,12 +71,59 @@ jobs:
         env:
           WP_URL: ${{ env.WP_URL }}
           WP_PAGE_IDS: ${{ github.event.inputs.wp_post_ids }}
+          # 認証情報を必要に応じて渡す（公開ページなら不要、非公開なら必要）
+          WP_JWT: ${{ env.WP_JWT }}
+          WP_BASIC_USER: ${{ env.WP_BASIC_USER }}
+          WP_BASIC_PASS: ${{ env.WP_BASIC_PASS }}
+          # ダミーデータ生成を制御（本番では0、テストでは1）
+          ALLOW_DUMMY: ${{ env.ALLOW_DUMMY }}
         run: |
           set -euo pipefail
           echo "🔎 Fetch ACF for: $WP_PAGE_IDS"
+          echo "🌐 WordPress URL: $WP_URL"
+          echo "🎛️ ALLOW_DUMMY: ${ALLOW_DUMMY:-0}"
+          
+          # 認証情報の確認（デバッグ用）
+          if [ -n "${WP_JWT:-}" ]; then
+            echo "🔐 JWT token available"
+          elif [ -n "${WP_BASIC_USER:-}" ] && [ -n "${WP_BASIC_PASS:-}" ]; then
+            echo "🔐 Basic auth available"
+          else
+            echo "🔓 No auth credentials (public access only)"
+          fi
+          
           test -f scripts/fetch-acf.js
           node scripts/fetch-acf.js "$WP_PAGE_IDS"
+          
+          echo "📄 Generated files:"
           ls -1 content-*.json id-slug-map.json
+
+      - name: Debug fetched content
+        run: |
+          echo "🔍 Checking fetched content for dummy data..."
+          
+          # id-slug-map.jsonの内容確認
+          if [ -f id-slug-map.json ]; then
+            echo "📋 ID-Slug mapping:"
+            cat id-slug-map.json | jq .
+          fi
+          
+          # content-*.jsonファイルの確認
+          for file in content-*.json; do
+            if [ -f "$file" ]; then
+              echo "📄 Content file: $file"
+              # ダミーデータかどうかチェック
+              if grep -q "Demo Booklet\|ダミーの本文" "$file"; then
+                echo "⚠️ WARNING: $file contains DUMMY data!"
+                echo "   Title: $(cat "$file" | jq -r '.title // "N/A"')"
+                echo "   Content preview: $(cat "$file" | jq -r '.content // "N/A"' | head -c 100)..."
+              else
+                echo "✅ $file appears to contain real data"
+                echo "   Title: $(cat "$file" | jq -r '.title // "N/A"')"
+                echo "   Content preview: $(cat "$file" | jq -r '.content // "N/A"' | head -c 100)..."
+              fi
+            fi
+          done
 
       - name: Build PDFs
         run: |
