@@ -202,22 +202,26 @@ jobs:
           )
 
           echo "Trying candidate FTP paths (relative to login root):" | tee -a "$tried_file"
+          FTP_TARGET_DIR=""
           for p in "${candidates[@]}"; do
             ts="${p%/}/"
             echo "- $ts" | tee -a "$tried_file"
             if curl -sS --user "$FTP_USERNAME:$FTP_PASSWORD" --ftp-method nocwd "ftp://$FTP_SERVER/$ts" -l >/dev/null 2>&1; then
               echo "FOUND: $ts" | tee -a "$tried_file"
+              FTP_TARGET_DIR="$ts"
               echo "FTP_TARGET_DIR=$ts" >> "$GITHUB_ENV"
               break
             fi
           done
-          if [ -z "${FTP_TARGET_DIR:-}" ]; then
+          if [ -z "$FTP_TARGET_DIR" ]; then
             echo "No working FTP path detected. Will fall back to FTP_DESTINATION_PATH if provided." | tee -a "$tried_file"
             if [ -n "${FTP_DESTINATION_PATH:-}" ]; then
               dest="${FTP_DESTINATION_PATH%/}/"
+              FTP_TARGET_DIR="$dest"
               echo "FTP_TARGET_DIR=$dest" >> "$GITHUB_ENV"
             fi
           fi
+          echo "Using FTP_TARGET_DIR='$FTP_TARGET_DIR'" | tee -a "$tried_file"
           echo "--- Summary (saved as $tried_file) ---"
           cat "$tried_file"
 
