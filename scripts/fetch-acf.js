@@ -300,24 +300,25 @@ async function main() {
         }
       }
 
-      // コンテンツの取得（ACFのcontentフィールドを優先、なければpage.content）
+      // コンテンツの取得（ACFのcontentフィールドのみ使用、固定ページ本文は使わない）
       let contentText = '';
       if (acf.content && acf.content.trim()) {
         contentText = acf.content.trim();
-      } else if (page.content?.rendered) {
-        contentText = page.content.rendered.replace(/<[^>]+>/g, '').trim();
+      } else {
+        contentText = ''; // ACFのcontentフィールドが空の場合は空文字
       }
       
       const content = {
         id: Number(id),
         slug,
         template: 'text-photo2',
-        title: acf.title || page.title?.rendered || page.title || slug,
+        title: acf.title || slug,
         content: contentText,
         photo1: normalizeImage(acf.photo1 || null),
         caption1: acf.caption1 || '',
         photo2: normalizeImage(acf.photo2 || null),
-        caption2: acf.caption2 || ''
+        caption2: acf.caption2 || '',
+        modified: page.modified || page.date || new Date().toISOString()
       };
 
       await enrichImages(content, WP_URL, headers);

@@ -44,6 +44,19 @@ function renderHTML(data) {
   const c1 = htmlEscape(data.caption1 || '');
   const p2 = data.photo2?.url || '';
   const c2 = htmlEscape(data.caption2 || '');
+  
+  // 日本時間でのタイムスタンプを生成（WordPressページの更新日時を優先）
+  const modifiedDate = data.modified ? new Date(data.modified) : new Date();
+  const jstTimestamp = new Intl.DateTimeFormat('ja-JP', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).format(modifiedDate).replace(/\//g, '-');
 
   // A4 landscape-ish print-friendly styles
   return `<!doctype html>
@@ -66,6 +79,14 @@ function renderHTML(data) {
       }
       h1 { font-size: 28px; margin: 0 0 12px; font-weight: 500; }
       p { line-height: 1.8; margin: 0 0 16px; }
+      .timestamp { 
+        font-size: 12px; 
+        color: #666; 
+        text-align: right; 
+        margin-bottom: 20px; 
+        border-bottom: 1px solid #eee; 
+        padding-bottom: 10px; 
+      }
       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
       figure { margin: 0; }
       figcaption { font-size: 12px; color: #555; margin-top: 8px; text-align: center; }
@@ -82,8 +103,9 @@ function renderHTML(data) {
   </head>
   <body>
     <section class="page">
+      <div class="timestamp">最終更新: ${jstTimestamp}</div>
       <h1>${title}</h1>
-      <p>${content}</p>
+      ${content ? `<p>${content}</p>` : ''}
       <div class="grid">
         <figure>
           ${p1 ? `<img src="${p1}" alt="" />` : ''}
