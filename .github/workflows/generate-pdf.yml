@@ -166,10 +166,28 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p deploy
-          cp out/booklet-*.pdf deploy/ 2>/dev/null || echo "No PDFs to stage"
+          shopt -s nullglob
+          files=(out/booklet-*.pdf)
+          if [ ${#files[@]} -gt 0 ]; then
+            cp out/booklet-*.pdf deploy/
+            echo "UPLOAD_HAS_FILES=1" >> "$GITHUB_ENV"
+            ls -lah deploy/
+          else
+            echo "No PDFs to stage"
+            echo "UPLOAD_HAS_FILES=0" >> "$GITHUB_ENV"
+          fi
+
+      - name: Normalize FTP destination (trailing slash)
+        if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' && env.FTP_DESTINATION_PATH != '' }}
+        run: |
+          set -euo pipefail
+          dest="${FTP_DESTINATION_PATH}"
+          # remove trailing slashes then add one
+          dest="${dest%/}/"
+          echo "FTP_DESTINATION_PATH=${dest}" >> "$GITHUB_ENV"
 
       - name: Upload PDFs to WordPress via FTP (optional)
-        if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' && env.FTP_DESTINATION_PATH != '' }}
+        if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' && env.FTP_DESTINATION_PATH != '' && env.UPLOAD_HAS_FILES == '1' }}
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ env.FTP_SERVER }}
@@ -177,8 +195,7 @@ jobs:
           password: ${{ env.FTP_PASSWORD }}
           protocol: ftp
           local-dir: deploy/
-          # Ensure trailing slash to satisfy the action's requirement
-          server-dir: ${{ env.FTP_DESTINATION_PATH }}/
+          server-dir: ${{ env.FTP_DESTINATION_PATH }}
 
       - name: Upload PDFs (artifact)
         uses: actions/upload-artifact@v4
