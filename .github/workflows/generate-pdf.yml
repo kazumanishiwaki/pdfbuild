@@ -27,6 +27,11 @@ on:
         required: false
         default: '0'
 
+# 並行実行制御: 同じページIDでの同時実行を防ぐ
+concurrency:
+  group: pdf-generation-${{ github.event.inputs.wp_post_ids }}
+  cancel-in-progress: false
+
 jobs:
 
   build:
@@ -48,7 +53,9 @@ jobs:
       FTP_SERVER: ${{ secrets.FTP_SERVER }}
       FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
       FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-     えて FTP_DESTINATION_PATH: ${{ secrets.FTP_DESTINATION_PATH }}
+      FTP_DESTINATION_PATH: ${{ secrets.FTP_DESTINATION_PATH }}
+      RUN_ID: ${{ github.run_id }}
+      RUN_NUMBER: ${{ github.run_number }}
 
     steps:
     
@@ -69,11 +76,20 @@ jobs:
             npm install --no-audit --no-fund
           fi
 
-      - name: Clean previous files
+      - name: Setup isolated workspace
         run: |
-          echo "🧹 Cleaning previous generated files..."
-          rm -f content-*.json id-slug-map.json out/booklet-*.html out/booklet-*.pdf
-          echo "✅ Cleanup completed"
+          echo "🏗️ Setting up isolated workspace for run ${{ github.run_id }}"
+          
+          # 実行ごとに独立したディレクトリを作成
+          WORK_DIR="work-${{ github.run_id }}"
+          mkdir -p "$WORK_DIR"/{out,deploy}
+          
+          # 環境変数として設定
+          echo "WORK_DIR=$WORK_DIR" >> "$GITHUB_ENV"
+          echo "OUT_DIR=$WORK_DIR/out" >> "$GITHUB_ENV"
+          echo "DEPLOY_DIR=$WORK_DIR/deploy" >> "$GITHUB_ENV"
+          
+          echo "✅ Workspace created: $WORK_DIR"
 
       - name: Fetch ACF (public first)
         env:
@@ -122,8 +138,9 @@ jobs:
           test -f scripts/fetch-acf.js
           
           # fetch-acf.jsの実行（詳細ログ付き）
-          echo "🚀 Running fetch-acf.js..."
-          if node scripts/fetch-acf.js "$WP_PAGE_IDS"; then
+          echo "🚀 Running fetch-acf.js in workspace: $WORK_DIR"
+          cd "$WORK_DIR"
+          if node ../scripts/fetch-acf.js "$WP_PAGE_IDS"; then
             echo "✅ fetch-acf.js completed successfully"
           else
             echo "❌ fetch-acf.js failed with exit code $?"
@@ -136,7 +153,8 @@ jobs:
 
       - name: Verify content files
         run: |
-          echo "📋 Content verification:"
+          echo "📋 Content verification in: $WORK_DIR"
+          cd "$WORK_DIR"
           ls -la content-*.json id-slug-map.json 2>/dev/null || echo "⚠️ Content files not found"
           
           # ダミーデータチェック
@@ -148,18 +166,21 @@ jobs:
 
       - name: Build PDFs
         run: |
-          echo "🏗️ Building PDFs..."
-          node scripts/build-batch.js --pdf --out out
+          echo "🏗️ Building PDFs in: $WORK_DIR"
+          cd "$WORK_DIR"
+          node ../scripts/build-batch.js --pdf --out out
 
       - name: Verify PDFs generated
         run: |
-          echo "📄 Generated PDFs:"
+          echo "📄 Generated PDFs in: $WORK_DIR"
+          cd "$WORK_DIR"
           ls -la out/booklet-*.pdf || echo "❌ No PDFs generated"
 
       - name: Normalize filename to page ID (optional)
         if: ${{ env.TARGET_SLUG != '' }}
         run: |
           set -euo pipefail
+          cd "$WORK_DIR"
           ID="${TARGET_SLUG}"
           TARGET_FILE="out/booklet-${ID}.pdf"
           
@@ -179,6 +200,7 @@ jobs:
 
       - name: Stage PDFs for FTP upload
         run: |
+          cd "$WORK_DIR"
           mkdir -p deploy
           if ls out/booklet-*.pdf 1> /dev/null 2>&1; then
             cp out/booklet-*.pdf deploy/
@@ -212,7 +234,7 @@ jobs:
           username: ${{ env.FTP_USERNAME }}
           password: ${{ env.FTP_PASSWORD }}
           protocol: ftp
-          local-dir: deploy/
+          local-dir: ${{ env.WORK_DIR }}/deploy/
           server-dir: ${{ env.FTP_TARGET_DIR }}
           log-level: verbose
 
@@ -232,17 +254,17 @@ jobs:
           fi
 
       - name: Upload PDFs (artifact)
-        if: ${{ hashFiles('out/booklet-*.pdf') != '' }}
+        if: ${{ hashFiles('work-*/out/booklet-*.pdf') != '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: pdf-booklets
+          name: pdf-booklets-${{ github.run_id }}
           path: |
-            out/booklet-*.pdf
+            ${{ env.WORK_DIR }}/out/booklet-*.pdf
           if-no-files-found: error
           retention-days: 7
 
       - name: Report if no PDFs generated
-        if: ${{ hashFiles('out/booklet-*.pdf') == '' }}
+        if: ${{ hashFiles('work-*/out/booklet-*.pdf') == '' }}
         run: echo "⚠️ No PDF files were generated"
 
       - name: Notify WordPress (webhook) - optional
@@ -251,6 +273,7 @@ jobs:
           RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
+          cd "$WORK_DIR"
           echo "📣 Sending webhook notification..."
           # Collect files from out/ but do not fail if none exist
           FILES=$((ls -1 out/booklet-*.pdf 2>/dev/null || true) | jq -R . | jq -s .)
@@ -258,3 +281,14 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{\"run_id\":\"$RUN_ID\",\"files\":$FILES}"
           echo "✅ Webhook sent to: $WEBHOOK"
+
+      - name: Cleanup workspace
+        if: always()
+        run: |
+          echo "🧹 Cleaning up workspace: $WORK_DIR"
+          if [ -d "$WORK_DIR" ]; then
+            rm -rf "$WORK_DIR"
+            echo "✅ Workspace cleaned up"
+          else
+            echo "ℹ️ No workspace to clean"
+          fi
