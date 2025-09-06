@@ -1,14 +1,13 @@
 {
-  "name": "pdf-booklet-refactor",
+  "name": "pdf-booklet-local",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "fetch": "node scripts/fetch-acf.js",
-    "build:one": "node scripts/build-single.js",
-    "build:all": "node scripts/build-batch.js"
+    "build:dummy": "node scripts/build-batch.js --src examples/dummy --out out",
+    "build:dummy:pdf": "node scripts/build-batch.js --src examples/dummy --out out --pdf"
   },
-  "dependencies": {
-    "ejs": "^3.1.9",
-    "p-limit": "^5.0.0"
+  "devDependencies": {
+    "puppeteer": "^24.19.0"
   }
 }
