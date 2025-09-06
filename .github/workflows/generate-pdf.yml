@@ -115,7 +115,7 @@ jobs:
           CODE2=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $WP_JWT" "$URL2") || CODE2=000
           echo "JWT probe (acf/v3 pages): $URL2 -> $CODE2"
 
-      - name: Fetch ACF JSONs (real data)
+      - name: Fetch ACF JSONs (no auth)
         env:
           WP_PAGE_IDS: ${{ github.event.inputs.wp_post_ids }}
         run: |
@@ -123,6 +123,8 @@ jobs:
           echo "🔎 Fetch ACF for: $WP_PAGE_IDS"
           # Require our fetcher (no silent dummy fallback)
           test -f scripts/fetch-acf.js
+          # Force unauthenticated fetch by clearing auth-related envs locally
+          unset WP_JWT WP_BASIC_USER WP_BASIC_PASS || true
           node scripts/fetch-acf.js "$WP_PAGE_IDS"
           ls -1 content-*.json id-slug-map.json
 
