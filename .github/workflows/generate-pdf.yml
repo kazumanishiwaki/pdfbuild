@@ -52,10 +52,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # cache は lockfile がないと失敗するため一旦無効化
+          # cache: 'npm'
 
       - name: Install deps
-        run: npm ci
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install --no-audit --no-fund
+          fi
 
       - name: Issue JWT if needed
         shell: bash
@@ -149,3 +155,4 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{\"run_id\":\"$RUN_ID\",\"files\":$FILES}"
           echo "📣 Notified: $WEBHOOK"
+
