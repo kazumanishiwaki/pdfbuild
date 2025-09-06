@@ -115,6 +115,10 @@ jobs:
           CODE2=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $WP_JWT" "$URL2") || CODE2=000
           echo "JWT probe (acf/v3 pages): $URL2 -> $CODE2"
 
+      - name: Debug fetch
+        run: |
+          curl -v "https://kazumanishiwaki.net/ks/wp-json/wp/v2/pages/125?_embed"
+
       - name: Fetch ACF JSONs (no auth)
         env:
           WP_PAGE_IDS: ${{ github.event.inputs.wp_post_ids }}
