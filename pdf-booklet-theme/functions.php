@@ -76,6 +76,45 @@ function get_jst_timestamp($timestamp = null) {
     return $date->format('Y-m-d H:i:s');
 }
 
+// ページ属性メタボックスを強制的に有効化
+add_action('add_meta_boxes', function() {
+    // ページ属性メタボックスを追加（存在しない場合）
+    add_meta_box(
+        'pageparentdiv',
+        __('Page Attributes'),
+        'page_attributes_meta_box',
+        'page',
+        'side',
+        'core'
+    );
+});
+
+// ページでテンプレート選択を有効にする
+add_filter('theme_page_templates', function($templates) {
+    $templates['template-text-photo2.php'] = 'PDF Booklet:テキスト+写真２枚形式';
+    return $templates;
+});
+
+// ページ属性の表示を強制
+add_action('admin_head-post.php', function() {
+    global $post;
+    if ($post && $post->post_type === 'page') {
+        ?>
+        <script>
+        // ページ属性メタボックスが非表示の場合は表示する
+        jQuery(document).ready(function($) {
+            if ($('#pageparentdiv').length === 0) {
+                console.log('Page attributes metabox not found, will add custom selector');
+            } else if ($('#pageparentdiv').is(':hidden')) {
+                console.log('Page attributes metabox is hidden, showing it');
+                $('#pageparentdiv').show();
+            }
+        });
+        </script>
+        <?php
+    }
+});
+
 // PDFブックレット設定ページを追加
 add_action('admin_menu', function(){
     add_options_page('PDFブックレット設定', 'PDFブックレット', 'manage_options', 'pdf-booklet-settings', 'render_pdf_settings_page');
@@ -708,6 +747,45 @@ add_action('admin_head-post.php', function() {
                 }
             }
             
+            // カスタムテンプレート変更処理関数
+            function handleCustomTemplateChange(template) {
+                console.log('Handling custom template change:', template);
+                
+                // PDF Bookletテンプレートかどうかを判定
+                var isPdfBookletTemplate = template === 'template-text-photo2.php' || 
+                                         template.indexOf('PDF Booklet') !== -1 ||
+                                         template.indexOf('テキスト+写真') !== -1;
+                
+                console.log('Is PDF Booklet template (custom):', isPdfBookletTemplate);
+                
+                if (isPdfBookletTemplate) {
+                    console.log('PDF Booklet template selected via custom selector');
+                    
+                    // bodyにクラスを追加
+                    $('body').addClass('pdf-booklet-active');
+                    
+                    // 説明メッセージを追加（重複チェック）
+                    if ($('.content-editor-replacement').length === 0) {
+                        $('#postdivrich').after('<div class="content-editor-replacement"><h3>📝 コンテンツの入力について</h3><p><strong>このページでは固定ページの本文は使用されません。</strong></p><p>PDFに表示するコンテンツは、下記の「PDFブックレット設定」フィールドで入力してください。</p></div>');
+                    }
+                    
+                    // タイトル下の説明を追加（重複チェック）
+                    if ($('#title').next('p').length === 0) {
+                        $('#title').after('<p style="margin: 10px 0; color: #666; font-size: 13px;">💡 このページタイトルはPDFには表示されません。PDFタイトルは下記のACFフィールドで設定してください。</p>');
+                    }
+                    
+                    // PDF Bookletウィジェットを追加（ACFがない場合の代替）
+                    addPdfBookletWidget();
+                    
+                } else {
+                    console.log('Other template selected via custom selector');
+                    $('body').removeClass('pdf-booklet-active');
+                    $('.content-editor-replacement').remove();
+                    $('#title').next('p').remove();
+                    $('.pdf-booklet-meta').remove();
+                }
+            }
+            
             // 初期状態をチェック
             setTimeout(function() {
                 console.log('Initial template check...');
@@ -715,9 +793,16 @@ add_action('admin_head-post.php', function() {
             }, 500);
             
             // テンプレート変更イベントを監視（複数のセレクターに対応）
-            $(document).on('change', '#page_template, select[name="page_template"], select[id*="template"]', function() {
+            $(document).on('change', '#page_template, select[name="page_template"], select[id*="template"], #pdf-custom-template-selector', function() {
                 console.log('Template change event triggered');
                 handleTemplateChange();
+            });
+            
+            // カスタムイベントも監視
+            $(document).on('pdf-template-changed', function(event, template) {
+                console.log('Custom PDF template changed event:', template);
+                // カスタムセレクターの値を使用してテンプレート変更を処理
+                handleCustomTemplateChange(template);
             });
             
             // ページ読み込み時に再度チェック（遅延実行）
@@ -799,6 +884,64 @@ add_action('admin_head-post-new.php', function() {
     }
 });
 
+// カスタムテンプレートセレクターを追加（ページ属性が見つからない場合の代替）
+add_action('edit_form_after_title', function($post) {
+    if ($post->post_type !== 'page') {
+        return;
+    }
+    
+    $current_template = get_page_template_slug($post->ID);
+    $available_templates = pdf_booklet_get_supported_templates();
+    
+    ?>
+    <div id="pdf-booklet-template-selector" style="background: #f0f6fc; border: 1px solid #c3c4c7; padding: 15px; margin: 20px 0; border-radius: 4px;">
+        <h3 style="margin-top: 0;">🎨 PDFブックレット テンプレート選択</h3>
+        <p style="margin-bottom: 10px;">このページで使用するテンプレートを選択してください：</p>
+        
+        <select id="pdf-custom-template-selector" name="page_template" style="width: 100%; padding: 8px;">
+            <option value="">デフォルトテンプレート</option>
+            <?php foreach ($available_templates as $file => $name): ?>
+                <option value="<?php echo esc_attr($file); ?>" <?php selected($current_template, $file); ?>>
+                    <?php echo esc_html($name); ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        
+        <p style="margin-top: 10px; font-size: 12px; color: #666;">
+            💡 「テキスト+写真2枚形式」を選択すると、PDF生成機能が有効になります。
+        </p>
+    </div>
+    
+    <script>
+    jQuery(document).ready(function($) {
+        console.log('Custom template selector added');
+        
+        // カスタムセレクターの変更を監視
+        $('#pdf-custom-template-selector').on('change', function() {
+            var selectedTemplate = $(this).val();
+            console.log('Custom template selector changed to:', selectedTemplate);
+            
+            // 標準のpage_templateがあれば同期
+            if ($('#page_template').length) {
+                $('#page_template').val(selectedTemplate);
+            }
+            
+            // 手動でテンプレート変更イベントをトリガー
+            $(document).trigger('pdf-template-changed', [selectedTemplate]);
+        });
+        
+        // 初期値を設定
+        setTimeout(function() {
+            var currentTemplate = $('#pdf-custom-template-selector').val();
+            if (currentTemplate) {
+                $(document).trigger('pdf-template-changed', [currentTemplate]);
+            }
+        }, 500);
+    });
+    </script>
+    <?php
+});
+
 // ページ編集画面にPDF Bookletウィジェットを追加（日本時間対応）
 add_action('edit_form_after_title', function($post) {
     error_log('edit_form_after_title hook triggered for post ID: ' . $post->ID);
@@ -811,11 +954,7 @@ add_action('edit_form_after_title', function($post) {
     $template = get_page_template_slug($post->ID);
     error_log('Template for page ' . $post->ID . ': ' . $template);
     
-    if (!is_pdf_booklet_template($template)) {
-        error_log('Not a PDF Booklet template, skipping widget');
-        return;
-    }
-    
+    // 常にPDF Bookletウィジェットを表示（テンプレートに関係なく）
     error_log('Adding PDF Booklet widget for page ' . $post->ID);
     
     $pdf_file = wp_upload_dir()['basedir'] . '/pdf-booklet/booklet-' . $post->ID . '.pdf';
