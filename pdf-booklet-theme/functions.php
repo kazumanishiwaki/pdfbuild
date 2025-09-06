@@ -625,12 +625,38 @@ add_action('admin_head-post.php', function() {
         jQuery(document).ready(function($) {
             console.log('PDF Booklet script loaded');
             
+            // デバッグ: ページ属性関連の要素をすべて検索
+            console.log('=== DEBUG: Searching for template elements ===');
+            console.log('All select elements:', $('select').map(function() { return this.id + ' (' + this.name + ')'; }).get());
+            console.log('Elements with "template" in id:', $('[id*="template"]').map(function() { return this.id + ' (' + this.tagName + ')'; }).get());
+            console.log('Elements with "template" in name:', $('[name*="template"]').map(function() { return this.name + ' (' + this.tagName + ')'; }).get());
+            console.log('Page attributes metabox:', $('#pageparentdiv').length ? 'Found' : 'Not found');
+            console.log('=== END DEBUG ===');
+            
             // テンプレート変更を監視する関数
             function handleTemplateChange() {
-                var template = $('#page_template').val();
-                console.log('Template changed to:', template);
+                // 複数のセレクターを試す
+                var templateElement = $('#page_template').length ? $('#page_template') : 
+                                    $('select[name="page_template"]').length ? $('select[name="page_template"]') :
+                                    $('select[id*="template"]').length ? $('select[id*="template"]') : null;
                 
-                if (template === 'template-text-photo2.php') {
+                var template = templateElement ? templateElement.val() : 'not_found';
+                
+                console.log('Template element found:', templateElement ? templateElement.attr('id') : 'none');
+                console.log('Template changed to:', template);
+                console.log('Available templates:', templateElement ? templateElement.find('option').map(function() { return $(this).val() + ':' + $(this).text(); }).get() : 'none');
+                
+                // PDF Bookletテンプレートかどうかを判定（複数の条件で判定）
+                var isPdfBookletTemplate = template === 'template-text-photo2.php' || 
+                                         template === 'PDF Booklet Text Photo2' ||
+                                         template === 'PDF Booklet:テキスト+写真２枚形式' ||
+                                         (templateElement && templateElement.find('option:selected').text().indexOf('PDF Booklet') !== -1) ||
+                                         (templateElement && templateElement.find('option:selected').text().indexOf('テキスト+写真') !== -1);
+                
+                console.log('Is PDF Booklet template:', isPdfBookletTemplate);
+                console.log('Selected option text:', templateElement ? templateElement.find('option:selected').text() : 'none');
+                
+                if (isPdfBookletTemplate) {
                     console.log('PDF Booklet template selected');
                     
                     // bodyにクラスを追加
@@ -683,13 +709,42 @@ add_action('admin_head-post.php', function() {
             }
             
             // 初期状態をチェック
-            handleTemplateChange();
+            setTimeout(function() {
+                console.log('Initial template check...');
+                handleTemplateChange();
+            }, 500);
             
-            // テンプレート変更イベントを監視
-            $('#page_template').on('change', handleTemplateChange);
+            // テンプレート変更イベントを監視（複数のセレクターに対応）
+            $(document).on('change', '#page_template, select[name="page_template"], select[id*="template"]', function() {
+                console.log('Template change event triggered');
+                handleTemplateChange();
+            });
             
-            // ページ読み込み時に再度チェック
-            setTimeout(handleTemplateChange, 1000);
+            // ページ読み込み時に再度チェック（遅延実行）
+            setTimeout(function() {
+                console.log('Delayed template check...');
+                handleTemplateChange();
+            }, 2000);
+            
+            // DOM変更を監視（テンプレート要素が後から追加される場合に対応）
+            var observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'childList') {
+                        var templateElement = $('#page_template, select[name="page_template"], select[id*="template"]');
+                        if (templateElement.length && !templateElement.data('listener-added')) {
+                            console.log('Template element detected via MutationObserver');
+                            templateElement.data('listener-added', true);
+                            templateElement.on('change', handleTemplateChange);
+                            handleTemplateChange();
+                        }
+                    }
+                });
+            });
+            
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
         });
         </script>
         <?php
@@ -707,10 +762,37 @@ add_action('admin_head-post-new.php', function() {
             console.log('New page script loaded');
             
             // 初期状態でPDF Bookletテンプレートを選択
-            setTimeout(function() {
-                $('#page_template').val('template-text-photo2.php').trigger('change');
-                console.log('Auto-selected PDF Booklet template');
-            }, 500);
+            function autoSelectTemplate() {
+                var templateElement = $('#page_template').length ? $('#page_template') : 
+                                    $('select[name="page_template"]').length ? $('select[name="page_template"]') :
+                                    $('select[id*="template"]').length ? $('select[id*="template"]') : null;
+                
+                if (templateElement && templateElement.length) {
+                    console.log('Template element found for auto-selection:', templateElement.attr('id'));
+                    console.log('Available options:', templateElement.find('option').map(function() { return $(this).val() + ':' + $(this).text(); }).get());
+                    
+                    // PDF Bookletテンプレートを探して選択
+                    var pdfOption = templateElement.find('option').filter(function() {
+                        var text = $(this).text();
+                        var value = $(this).val();
+                        return value === 'template-text-photo2.php' || 
+                               text.indexOf('PDF Booklet') !== -1 || 
+                               text.indexOf('テキスト+写真') !== -1;
+                    }).first();
+                    
+                    if (pdfOption.length) {
+                        templateElement.val(pdfOption.val()).trigger('change');
+                        console.log('Auto-selected PDF Booklet template:', pdfOption.val(), pdfOption.text());
+                    } else {
+                        console.log('PDF Booklet template option not found');
+                    }
+                } else {
+                    console.log('Template element not found, retrying...');
+                    setTimeout(autoSelectTemplate, 500);
+                }
+            }
+            
+            setTimeout(autoSelectTemplate, 500);
         });
         </script>
         <?php
