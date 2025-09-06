@@ -138,12 +138,13 @@ async function main() {
   }
   const raw = fs.readFileSync(json, 'utf-8');
   const data = JSON.parse(raw);
-  const slug = String(data.slug || data.id || 'page');
+  // ファイル名はID名を使用（日本語エンコード問題を回避）
+  const filename = String(data.id || data.slug || 'page');
 
   ensureDir(out);
   const html = renderHTML(data);
-  const htmlPath = path.resolve(out, `booklet-${slug}.html`);
-  const pdfPath = path.resolve(out, `booklet-${slug}.pdf`);
+  const htmlPath = path.resolve(out, `booklet-${filename}.html`);
+  const pdfPath = path.resolve(out, `booklet-${filename}.pdf`);
   fs.writeFileSync(htmlPath, html);
   console.log('📝 HTML generated:', htmlPath);
 
