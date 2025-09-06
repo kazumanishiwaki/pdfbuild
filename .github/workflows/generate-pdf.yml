@@ -51,6 +51,7 @@ jobs:
       FTP_DESTINATION_PATH: ${{ secrets.FTP_DESTINATION_PATH }}
 
     steps:
+    
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -67,6 +68,12 @@ jobs:
             npm install --no-audit --no-fund
           fi
 
+      - name: Clean previous files
+        run: |
+          echo "🧹 Cleaning previous generated files..."
+          rm -f content-*.json id-slug-map.json out/booklet-*.html out/booklet-*.pdf
+          echo "✅ Cleanup completed"
+
       - name: Fetch ACF (public first)
         env:
           WP_URL: ${{ env.WP_URL }}
@@ -75,13 +82,24 @@ jobs:
           WP_JWT: ${{ env.WP_JWT }}
           WP_BASIC_USER: ${{ env.WP_BASIC_USER }}
           WP_BASIC_PASS: ${{ env.WP_BASIC_PASS }}
-          # ダミーデータ生成を制御（本番では0、テストでは1）
-          ALLOW_DUMMY: ${{ env.ALLOW_DUMMY }}
+          # ダミーデータ生成を無効化（実際のデータのみ使用）
+          ALLOW_DUMMY: 0
         run: |
           set -euo pipefail
           echo "🔎 Fetch ACF for: $WP_PAGE_IDS"
           echo "🌐 WordPress URL: $WP_URL"
           echo "🎛️ ALLOW_DUMMY: ${ALLOW_DUMMY:-0}"
+          
+          # 必須パラメータの確認
+          if [ -z "${WP_URL:-}" ]; then
+            echo "❌ ERROR: WP_URL is not set!"
+            exit 1
+          fi
+          
+          if [ -z "${WP_PAGE_IDS:-}" ]; then
+            echo "❌ ERROR: WP_PAGE_IDS is not set!"
+            exit 1
+          fi
           
           # 認証情報の確認（デバッグ用）
           if [ -n "${WP_JWT:-}" ]; then
@@ -92,8 +110,25 @@ jobs:
             echo "🔓 No auth credentials (public access only)"
           fi
           
+          # WordPress URLの接続テスト
+          echo "🔍 Testing WordPress connection..."
+          if curl -s -f "$WP_URL" > /dev/null; then
+            echo "✅ WordPress site is accessible"
+          else
+            echo "❌ WARNING: WordPress site may not be accessible"
+          fi
+          
           test -f scripts/fetch-acf.js
-          node scripts/fetch-acf.js "$WP_PAGE_IDS"
+          
+          # fetch-acf.jsの実行（詳細ログ付き）
+          echo "🚀 Running fetch-acf.js..."
+          if node scripts/fetch-acf.js "$WP_PAGE_IDS"; then
+            echo "✅ fetch-acf.js completed successfully"
+          else
+            echo "❌ fetch-acf.js failed with exit code $?"
+            echo "🔍 This may cause dummy data fallback"
+            exit 1
+          fi
           
           echo "📄 Generated files:"
           ls -1 content-*.json id-slug-map.json
