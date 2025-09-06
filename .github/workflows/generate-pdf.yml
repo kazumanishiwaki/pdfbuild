@@ -84,10 +84,93 @@ jobs:
             node scripts/build-batch.js --pdf --out out
           fi
 
-      - name: Upload PDFs
+      - name: List generated PDFs
+        run: |
+          echo "📄 Generated PDFs:"
+          ls -lah out/booklet-*.pdf || echo "No PDFs found"
+
+      - name: Normalize filename to page ID (optional)
+        if: ${{ env.TARGET_SLUG != '' }}
+        run: |
+          set -euo pipefail
+          ID="${TARGET_SLUG}"
+          FIRST=$(ls -1 out/booklet-*.pdf 2>/dev/null | head -n1 || true)
+          if [ -n "${FIRST}" ]; then
+            cp "${FIRST}" "out/booklet-${ID}.pdf"
+            echo "📄 Renamed to out/booklet-${ID}.pdf"
+          else
+            echo "⚠️ No PDF found to normalize."
+          fi
+
+      - name: Stage PDFs for FTP upload
+        run: |
+          set -euo pipefail
+          mkdir -p deploy
+          shopt -s nullglob
+          files=(out/booklet-*.pdf)
+          if [ ${#files[@]} -gt 0 ]; then
+            cp out/booklet-*.pdf deploy/
+            echo "UPLOAD_HAS_FILES=1" >> "$GITHUB_ENV"
+            echo "📦 Staged ${#files[@]} PDF(s) for upload:"
+            ls -lah deploy/
+          else
+            echo "⚠️ No PDFs to stage"
+            echo "UPLOAD_HAS_FILES=0" >> "$GITHUB_ENV"
+          fi
+
+      - name: Set FTP target directory
+        if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' && env.FTP_DESTINATION_PATH != '' }}
+        run: |
+          set -euo pipefail
+          dest="${FTP_DESTINATION_PATH%/}/"
+          echo "FTP_TARGET_DIR=$dest" >> "$GITHUB_ENV"
+          echo "🎯 FTP target directory: $dest"
+
+      - name: Upload PDFs to WordPress via FTP
+        if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' && env.FTP_TARGET_DIR != '' && env.UPLOAD_HAS_FILES == '1' }}
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ env.FTP_SERVER }}
+          username: ${{ env.FTP_USERNAME }}
+          password: ${{ env.FTP_PASSWORD }}
+          protocol: ftp
+          local-dir: deploy/
+          server-dir: ${{ env.FTP_TARGET_DIR }}
+          log-level: verbose
+
+      - name: Verify public URL (optional)
+        if: ${{ env.WP_URL != '' && env.TARGET_SLUG != '' }}
+        run: |
+          set -euo pipefail
+          URL="${WP_URL%/}/wp-content/uploads/pdf-booklet/booklet-${TARGET_SLUG}.pdf"
+          echo "🔍 Checking public URL: $URL"
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+          echo "📡 HTTP response: $code"
+          if [ "$code" = "200" ]; then
+            echo "✅ PDF is publicly accessible"
+          else
+            echo "⚠️ PDF not accessible (HTTP $code)"
+          fi
+
+      - name: Upload PDFs (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: pdf-booklets
-          path: out/booklet-*.pdf
+          path: |
+            out/booklet-*.pdf
           if-no-files-found: warn
           retention-days: 7
+
+      - name: Notify WordPress (webhook) - optional
+        if: ${{ env.WEBHOOK != '' }}
+        env:
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          echo "📣 Sending webhook notification..."
+          # Collect files from out/ but do not fail if none exist
+          FILES=$((ls -1 out/booklet-*.pdf 2>/dev/null || true) | jq -R . | jq -s .)
+          curl -sS -X POST "$WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d "{\"run_id\":\"$RUN_ID\",\"files\":$FILES}"
+          echo "✅ Webhook sent to: $WEBHOOK"
