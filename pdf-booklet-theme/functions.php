@@ -672,6 +672,66 @@ add_action('admin_head-post.php', function() {
             console.log('Page attributes metabox:', $('#pageparentdiv').length ? 'Found' : 'Not found');
             console.log('=== END DEBUG ===');
             
+            // カスタムテンプレートセレクターを直接JavaScriptで追加
+            function addCustomTemplateSelector() {
+                if ($('#pdf-booklet-template-selector').length === 0) {
+                    console.log('Adding custom template selector via JavaScript');
+                    
+                    var currentTemplate = '<?php echo esc_js(get_page_template_slug($post->ID ?? 0)); ?>';
+                    console.log('Current template from PHP:', currentTemplate);
+                    
+                    var selectorHtml = '<div id="pdf-booklet-template-selector" style="background: #f0f6fc; border: 1px solid #c3c4c7; padding: 15px; margin: 20px 0; border-radius: 4px;">' +
+                        '<h3 style="margin-top: 0;">🎨 PDFブックレット テンプレート選択</h3>' +
+                        '<p style="margin-bottom: 10px;">このページで使用するテンプレートを選択してください：</p>' +
+                        '<select id="pdf-custom-template-selector" name="page_template" style="width: 100%; padding: 8px;">' +
+                        '<option value="">デフォルトテンプレート</option>' +
+                        '<option value="template-text-photo2.php"' + (currentTemplate === 'template-text-photo2.php' ? ' selected' : '') + '>テキスト+写真2枚形式</option>' +
+                        '</select>' +
+                        '<p style="margin-top: 10px; font-size: 12px; color: #666;">' +
+                        '💡 「テキスト+写真2枚形式」を選択すると、PDF生成機能が有効になります。' +
+                        '</p>' +
+                        '</div>';
+                    
+                    // タイトルの後に挿入
+                    if ($('#titlewrap').length) {
+                        $('#titlewrap').after(selectorHtml);
+                        console.log('Custom selector added after title');
+                    } else if ($('#title').length) {
+                        $('#title').closest('.wrap').find('h1').after(selectorHtml);
+                        console.log('Custom selector added after h1');
+                    } else {
+                        $('.wrap').prepend(selectorHtml);
+                        console.log('Custom selector prepended to wrap');
+                    }
+                    
+                    // イベントリスナーを追加
+                    $('#pdf-custom-template-selector').on('change', function() {
+                        var selectedTemplate = $(this).val();
+                        console.log('Custom template selector changed to:', selectedTemplate);
+                        
+                        // 標準のpage_templateがあれば同期
+                        if ($('#page_template').length) {
+                            $('#page_template').val(selectedTemplate);
+                        }
+                        
+                        // 手動でテンプレート変更イベントをトリガー
+                        $(document).trigger('pdf-template-changed', [selectedTemplate]);
+                    });
+                    
+                    // 初期状態でテンプレートが選択されている場合はイベントを発火
+                    if (currentTemplate) {
+                        setTimeout(function() {
+                            $(document).trigger('pdf-template-changed', [currentTemplate]);
+                        }, 100);
+                    }
+                } else {
+                    console.log('Custom template selector already exists');
+                }
+            }
+            
+            // DOM読み込み後に追加
+            setTimeout(addCustomTemplateSelector, 500);
+            
             // テンプレート変更を監視する関数
             function handleTemplateChange() {
                 // 複数のセレクターを試す
