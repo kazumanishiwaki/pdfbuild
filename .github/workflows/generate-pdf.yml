@@ -177,17 +177,52 @@ jobs:
             echo "UPLOAD_HAS_FILES=0" >> "$GITHUB_ENV"
           fi
 
-      - name: Normalize FTP destination (trailing slash)
-        if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' && env.FTP_DESTINATION_PATH != '' }}
+      - name: Detect FTP destination path (bruteforce)
+        if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' }}
         run: |
           set -euo pipefail
-          dest="${FTP_DESTINATION_PATH}"
-          # remove trailing slashes then add one
-          dest="${dest%/}/"
-          echo "FTP_DESTINATION_PATH=${dest}" >> "$GITHUB_ENV"
+          tried_file="ftp-path-check.log"
+          : > "$tried_file"
+          # Build candidate list (both with and without leading slash)
+          add() { local p="$1"; [ -n "$p" ] || return 0; echo "$p"; p2="${p#/}"; if [ "$p2" != "$p" ]; then echo "$p2"; fi; p3="/$p"; if [ "$p3" != "$p" ]; then echo "$p3"; fi; }
+          candidates=()
+          while IFS= read -r line; do candidates+=("$line"); done < <(
+            {
+              add "$FTP_DESTINATION_PATH";
+              # Common hosting layouts
+              add "public_html/ks/wp-content/uploads/pdf-booklet";
+              add "kazumanishiwaki.net/public_html/ks/wp-content/uploads/pdf-booklet";
+              add "wp-content/uploads/pdf-booklet";
+              add "ks/wp-content/uploads/pdf-booklet";
+              add "htdocs/wp-content/uploads/pdf-booklet";
+              add "www/wp-content/uploads/pdf-booklet";
+              add "domains/kazumanishiwaki.net/public_html/ks/wp-content/uploads/pdf-booklet";
+              add "httpdocs/wp-content/uploads/pdf-booklet";
+            } | awk 'NF' | awk '!seen[$0]++'
+          )
+
+          echo "Trying candidate FTP paths (relative to login root):" | tee -a "$tried_file"
+          for p in "${candidates[@]}"; do
+            ts="${p%/}/"
+            echo "- $ts" | tee -a "$tried_file"
+            if curl -sS --user "$FTP_USERNAME:$FTP_PASSWORD" --ftp-method nocwd "ftp://$FTP_SERVER/$ts" -l >/dev/null 2>&1; then
+              echo "FOUND: $ts" | tee -a "$tried_file"
+              echo "FTP_TARGET_DIR=$ts" >> "$GITHUB_ENV"
+              break
+            fi
+          done
+          if [ -z "${FTP_TARGET_DIR:-}" ]; then
+            echo "No working FTP path detected. Will fall back to FTP_DESTINATION_PATH if provided." | tee -a "$tried_file"
+            if [ -n "${FTP_DESTINATION_PATH:-}" ]; then
+              dest="${FTP_DESTINATION_PATH%/}/"
+              echo "FTP_TARGET_DIR=$dest" >> "$GITHUB_ENV"
+            fi
+          fi
+          echo "--- Summary (saved as $tried_file) ---"
+          cat "$tried_file"
 
       - name: Upload PDFs to WordPress via FTP (optional)
-        if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' && env.FTP_DESTINATION_PATH != '' && env.UPLOAD_HAS_FILES == '1' }}
+        if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' && env.FTP_TARGET_DIR != '' && env.UPLOAD_HAS_FILES == '1' }}
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ env.FTP_SERVER }}
@@ -195,7 +230,7 @@ jobs:
           password: ${{ env.FTP_PASSWORD }}
           protocol: ftp
           local-dir: deploy/
-          server-dir: ${{ env.FTP_DESTINATION_PATH }}
+          server-dir: ${{ env.FTP_TARGET_DIR }}
 
       - name: Upload PDFs (artifact)
         uses: actions/upload-artifact@v4
