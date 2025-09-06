@@ -349,15 +349,47 @@ jobs:
           fi
 
       - name: Set FTP target directory
-        if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' && env.FTP_DESTINATION_PATH != '' }}
+        if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' }}
         run: |
           set -euo pipefail
-          dest="${FTP_DESTINATION_PATH%/}/"
+          # FTP_DESTINATION_PATHが設定されていない場合はデフォルトを使用
+          if [ -n "${FTP_DESTINATION_PATH:-}" ]; then
+            dest="${FTP_DESTINATION_PATH%/}/"
+          else
+            dest="kazumanishiwaki.net/public_html/ks/wp-content/uploads/pdf-booklet/"
+            echo "⚠️ FTP_DESTINATION_PATH not set, using default: $dest"
+          fi
           echo "FTP_TARGET_DIR=$dest" >> "$GITHUB_ENV"
           echo "🎯 FTP target directory: $dest"
 
+      - name: Debug FTP upload conditions
+        run: |
+          echo "🔍 FTP Upload Debug Information:"
+          echo "   FTP_SERVER: ${FTP_SERVER:+SET}"
+          echo "   FTP_USERNAME: ${FTP_USERNAME:+SET}"
+          echo "   FTP_PASSWORD: ${FTP_PASSWORD:+SET}"
+          echo "   FTP_TARGET_DIR: ${FTP_TARGET_DIR:-NOT_SET}"
+          echo "   UPLOAD_HAS_FILES: ${UPLOAD_HAS_FILES:-NOT_SET}"
+          
+          # deployディレクトリの確認
+          if [ -d deploy ]; then
+            echo "📁 Deploy directory contents:"
+            ls -la deploy/
+            file_count=$(ls -1 deploy/*.pdf 2>/dev/null | wc -l || echo "0")
+            echo "   PDF files in deploy/: $file_count"
+          else
+            echo "❌ Deploy directory does not exist"
+          fi
+          
+          # FTPアップロード実行判定
+          if [ -n "${FTP_SERVER:-}" ] && [ -n "${FTP_USERNAME:-}" ] && [ -n "${FTP_PASSWORD:-}" ] && [ -n "${FTP_TARGET_DIR:-}" ]; then
+            echo "✅ All FTP conditions met - upload should proceed"
+          else
+            echo "❌ FTP conditions not met - upload will be skipped"
+          fi
+
       - name: Upload PDFs to WordPress via FTP
-        if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' && env.FTP_TARGET_DIR != '' && env.UPLOAD_HAS_FILES == '1' }}
+        if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' && env.FTP_TARGET_DIR != '' }}
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ env.FTP_SERVER }}
