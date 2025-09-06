@@ -1,0 +1,35 @@
+<!doctype html>
+  <html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Demo Booklet</title>
+    <style>
+      @page { size: A4 landscape; margin: 14mm; }
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color:#111; }
+      h1 { font-size: 28px; margin: 0 0 12px; }
+      p { line-height: 1.6; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+      figure { margin: 0; }
+      figcaption { font-size: 12px; color: #555; margin-top: 6px; }
+      img { width: 100%; height: auto; border: 1px solid #ddd; }
+      .page { break-after: page; }
+    </style>
+  </head>
+  <body>
+    <section class="page">
+      <h1>Demo Booklet</h1>
+      <p>これはダミーの本文です。ローカル検証用の短いテキストを配置しています。</p>
+      <div class="grid">
+        <figure>
+          <img src="data:image/svg+xml;utf8,<?xml version='1.0' encoding='UTF-8'?><svg xmlns='http://www.w3.org/2000/svg' width='800' height='450'><rect width='100%' height='100%' fill='%23e5e7eb'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='40' fill='%236b7280'>PHOTO 1</text></svg>" alt="" />
+          <figcaption>写真1のキャプション（ダミー）</figcaption>
+        </figure>
+        <figure>
+          <img src="data:image/svg+xml;utf8,<?xml version='1.0' encoding='UTF-8'?><svg xmlns='http://www.w3.org/2000/svg' width='800' height='450'><rect width='100%' height='100%' fill='%23e5e7eb'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='40' fill='%236b7280'>PHOTO 2</text></svg>" alt="" />
+          <figcaption>写真2のキャプション（ダミー）</figcaption>
+        </figure>
+      </div>
+    </section>
+  </body>
+  </html>

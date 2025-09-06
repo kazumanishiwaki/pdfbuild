@@ -1,0 +1,20 @@
+{
+  "id": 123,
+  "slug": "demo",
+  "template": "text-photo2",
+  "title": "Demo Booklet",
+  "content": "これはダミーの本文です。ローカル検証用の短いテキストを配置しています。",
+  "photo1": {
+    "url": "data:image/svg+xml;utf8,<?xml version='1.0' encoding='UTF-8'?><svg xmlns='http://www.w3.org/2000/svg' width='800' height='450'><rect width='100%' height='100%' fill='%23e5e7eb'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='40' fill='%236b7280'>PHOTO 1</text></svg>",
+    "alt": "ダミー画像1",
+    "title": "Placeholder 1"
+  },
+  "caption1": "写真1のキャプション（ダミー）",
+  "photo2": {
+    "url": "data:image/svg+xml;utf8,<?xml version='1.0' encoding='UTF-8'?><svg xmlns='http://www.w3.org/2000/svg' width='800' height='450'><rect width='100%' height='100%' fill='%23e5e7eb'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='40' fill='%236b7280'>PHOTO 2</text></svg>",
+    "alt": "ダミー画像2",
+    "title": "Placeholder 2"
+  },
+  "caption2": "写真2のキャプション（ダミー）"
+}
+

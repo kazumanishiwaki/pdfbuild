@@ -89,20 +89,70 @@ async function getJSON(url, headers) {
   throw err;
 }
 
-async function fetchPage(id, base, headers) {
-  const url = `${base.replace(/\/$/, '')}/wp-json/wp/v2/pages/${encodeURIComponent(id)}?_embed`;
-  return getJSON(url, headers);
+function buildAuthHeadersFromEnv() {
+  const WP_JWT = process.env.WP_JWT || '';
+  const WP_BASIC_USER = process.env.WP_BASIC_USER || process.env.WP_APP_USER || '';
+  const WP_BASIC_PASS = process.env.WP_BASIC_PASS || process.env.WP_APP_PASS || '';
+  
+  if (WP_JWT) {
+    return { 'Authorization': `Bearer ${WP_JWT}` };
+  } else if (WP_BASIC_USER && WP_BASIC_PASS) {
+    const token = Buffer.from(`${WP_BASIC_USER}:${WP_BASIC_PASS}`).toString('base64');
+    return { 'Authorization': `Basic ${token}` };
+  }
+  return {};
 }
 
-async function fetchACF(id, base, headers) {
+async function fetchPage(id, base, headers = {}) {
+  const url = `${base.replace(/\/$/, '')}/wp-json/wp/v2/pages/${encodeURIComponent(id)}?_embed`; // 公開はまず無認証で
+  
+  let res;
+  try {
+    res = await getJSON(url, headers);
+    return res;
+  } catch (error) {
+    if (error.status === 403 || error.status === 401) {
+      // 403/401時のみ認証でリトライ（未公開やREST制限時に備える）
+      console.log(`🔄 Retrying with auth due to ${error.status} error...`);
+      const authHeaders = buildAuthHeadersFromEnv();
+      const authUrl = `${base.replace(/\/$/, '')}/wp-json/wp/v2/pages/${encodeURIComponent(id)}?context=edit&_embed`;
+      return getJSON(authUrl, { ...headers, ...authHeaders });
+    }
+    throw error;
+  }
+}
+
+async function fetchACF(id, base, headers = {}) {
   // Requires ACF to REST API plugin
   const url = `${base.replace(/\/$/, '')}/wp-json/acf/v3/pages/${encodeURIComponent(id)}`;
-  return getJSON(url, headers);
+  
+  try {
+    return await getJSON(url, headers);
+  } catch (error) {
+    if (error.status === 403 || error.status === 401) {
+      // 403/401時のみ認証でリトライ
+      console.log(`🔄 Retrying ACF with auth due to ${error.status} error...`);
+      const authHeaders = buildAuthHeadersFromEnv();
+      return getJSON(url, { ...headers, ...authHeaders });
+    }
+    throw error;
+  }
 }
 
-async function fetchMedia(id, base, headers) {
+async function fetchMedia(id, base, headers = {}) {
   const url = `${base.replace(/\/$/, '')}/wp-json/wp/v2/media/${encodeURIComponent(id)}`;
-  return getJSON(url, headers);
+  
+  try {
+    return await getJSON(url, headers);
+  } catch (error) {
+    if (error.status === 403 || error.status === 401) {
+      // 403/401時のみ認証でリトライ
+      console.log(`🔄 Retrying media with auth due to ${error.status} error...`);
+      const authHeaders = buildAuthHeadersFromEnv();
+      return getJSON(url, { ...headers, ...authHeaders });
+    }
+    throw error;
+  }
 }
 
 function normalizeImage(val) {
@@ -146,16 +196,7 @@ async function main() {
     console.log(`\n🔍 Processing page ID: ${id}`);
     try {
       const headers = { 'Accept': 'application/json' };
-      if (WP_JWT) {
-        headers['Authorization'] = `Bearer ${WP_JWT}`;
-        console.log(`🔐 Using JWT auth`);
-      } else if (WP_BASIC_USER && WP_BASIC_PASS) {
-        const token = Buffer.from(`${WP_BASIC_USER}:${WP_BASIC_PASS}`).toString('base64');
-        headers['Authorization'] = `Basic ${token}`;
-        console.log(`🔐 Using Basic auth`);
-      } else {
-        console.log(`🔓 No auth (public access)`);
-      }
+      console.log(`🔓 Trying public access first...`);
       const page = await fetchPage(id, WP_URL, headers);
       const slug = page.slug || String(id);
       console.log(`✅ Page fetched: ${slug} (ID: ${id})`);
