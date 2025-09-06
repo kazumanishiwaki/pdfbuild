@@ -25,23 +25,15 @@ function httpGet(url, headers = {}) {
       ...headers
     };
     
-    console.log(`→ GET ${url}`);
-    console.log(`→ Headers: ${JSON.stringify(debugHeaders)}`);
-
     const lib = url.startsWith('https') ? https : http;
     const req = lib.get(url, { headers: debugHeaders }, (res) => {
-      console.log(`← Status: ${res.statusCode} ${res.statusMessage}`);
-      console.log(`← Resp headers: ${JSON.stringify(res.headers)}`);
-      
       let data = '';
       res.on('data', (c) => (data += c));
       res.on('end', () => {
         if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-          console.log(`← Body length: ${data.length} chars`);
           resolve({ status: res.statusCode, data });
         } else {
-          // 本文先頭だけでも出すとWAF系メッセージやプラグイン名が見える
-          console.error(`← Body head: ${data.slice(0, 500)}`);
+          console.error(`← Status: ${res.statusCode} ${res.statusMessage}`);
           resolve({ status: res.statusCode || 0, data });
         }
       });
@@ -331,18 +323,9 @@ async function main() {
       await enrichImages(content, WP_URL, headers);
       
       // デバッグ: 生成されたコンテンツの詳細をログ出力
-      console.log(`\n📊 Generated content for ID ${id}:`);
-      console.log(`   Title: "${content.title}"`);
-      console.log(`   Content: "${content.content.substring(0, 100)}${content.content.length > 100 ? '...' : ''}"`);
-      console.log(`   Photo1: ${content.photo1?.url || 'N/A'}`);
-      console.log(`   Caption1: "${content.caption1}"`);
-      console.log(`   Photo2: ${content.photo2?.url || 'N/A'}`);
-      console.log(`   Caption2: "${content.caption2}"`);
-      console.log(`   Template: ${content.template}`);
-      
       // ファイル名はID名を使用（日本語エンコード問題を回避）
       writeJSON(`content-${filename}.json`, content);
-      console.log(`💾 Saved: content-${filename}.json`);
+      console.log(`✅ Page fetched: ${slug} (ID: ${id})`);
       wroteAny = true;
     } catch (e) {
       console.error(`❌ Error fetching id=${id}:`, e.message);
