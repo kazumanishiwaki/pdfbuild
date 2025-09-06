@@ -26,34 +26,24 @@ on:
         description: 'ダミーデータ生成を許可（1/true で許可）'
         required: false
         default: '0'
-  # 任意: 定期実行したい場合は有効化
-  # schedule:
-  #   - cron: '0 3 * * *'   # JSTで正午にしたければ '0 3 * * *'（GitHubはUTC）
 
 jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      # WordPress 接続先（Secretsに保存）
       WP_URL: ${{ secrets.WP_URL }}
-      # WP_USER / WP_PASS は「必要時のみ」JWT発行に使う（公開ページだけなら不要）
       WP_USER: ${{ secrets.WP_USER }}
       WP_PASS: ${{ secrets.WP_PASS }}
-      # Optional: pre-issued JWT token (if provided, issuance step will skip)
       WP_JWT: ${{ secrets.WP_JWT }}
-      # Optional: Basic auth (WordPress Application Passwords)
       WP_BASIC_USER: ${{ secrets.WP_BASIC_USER }}
       WP_BASIC_PASS: ${{ secrets.WP_BASIC_PASS }}
-
-      # ビルド設定
-      ON_ERROR: "continue"                         # 失敗ページがあっても続行（fetch-acf.js対応）
+      ON_ERROR: "continue"
       CONCURRENCY: ${{ github.event.inputs.concurrency }}
       TEMPLATE_TYPE: ${{ github.event.inputs.template_type }}
       SKIP_SCHEMA: ${{ github.event.inputs.skip_schema }}
       TARGET_SLUG: ${{ github.event.inputs.target_slug }}
       WEBHOOK: ${{ secrets.WP_WEBHOOK_URL }}
       ALLOW_DUMMY: ${{ github.event.inputs.allow_dummy }}
-      # FTP（任意: WordPress への配布用・既存Secretsを流用）
       FTP_SERVER: ${{ secrets.FTP_SERVER }}
       FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
       FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
@@ -67,8 +57,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          # cache は lockfile がないと失敗するため一旦無効化
-          # cache: 'npm'
 
       - name: Install deps
         run: |
@@ -78,182 +66,26 @@ jobs:
             npm install --no-audit --no-fund
           fi
 
-      - name: Issue JWT if needed
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -n "${WP_JWT:-}" ]]; then
-            echo "🔐 Using pre-provided WP_JWT from secrets"
-          elif [[ -n "${WP_USER:-}" && -n "${WP_PASS:-}" ]]; then
-            echo "🔐 Try issuing JWT..."
-            RESP=$(curl -sS -X POST "$WP_URL/wp-json/jwt-auth/v1/token" \
-              -H "Content-Type: application/json" \
-              -d "{\"username\":\"$WP_USER\",\"password\":\"$WP_PASS\"}") || true
-            TOKEN=$(echo "$RESP" | jq -r '.token // empty')
-            if [[ -n "$TOKEN" ]]; then
-              echo "WP_JWT=$TOKEN" >> "$GITHUB_ENV"
-              echo "✅ JWT issued"
-            else
-              echo "⚠️ JWT not issued (will try without Authorization if possible)"
-            fi
-          else
-            echo "ℹ️ No WP_USER/WP_PASS provided. Will call API without JWT."
-          fi
-
-      - name: Verify JWT (optional)
-        if: ${{ env.WP_JWT != '' }}
-        env:
-          WP_PAGE_IDS: ${{ github.event.inputs.wp_post_ids }}
-        run: |
-          set -euo pipefail
-          FIRST_ID=$(echo "$WP_PAGE_IDS" | awk -F',' '{print $1}' | xargs)
-          if [ -z "$FIRST_ID" ]; then echo "No ID to probe"; exit 0; fi
-          URL1="${WP_URL%/}/wp-json/wp/v2/pages/${FIRST_ID}?_embed"
-          CODE1=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $WP_JWT" "$URL1")
-          echo "JWT probe (wp/v2 pages): $URL1 -> $CODE1"
-          URL2="${WP_URL%/}/wp-json/acf/v3/pages/${FIRST_ID}"
-          CODE2=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $WP_JWT" "$URL2") || CODE2=000
-          echo "JWT probe (acf/v3 pages): $URL2 -> $CODE2"
-
-      - name: Debug: raw curl to WP REST
-        run: |
-          set -euo pipefail
-          URL="${WP_URL%/}/wp-json/wp/v2/pages/125?_embed"
-          echo "GET $URL"
-          # UAをブラウザっぽく偽装 & リダイレクト追従 & 詳細ログ
-          curl -v -L -A "Mozilla/5.0 (Actions debug)" -H "Accept: application/json" "$URL" -o /tmp/p125.json
-          echo "HTTP OK; saved to /tmp/p125.json"
-        env:
-          WP_URL: ${{ env.WP_URL }}
-
-      - name: Fetch ACF JSONs (no auth)
+      - name: Fetch ACF JSONs
         env:
           WP_PAGE_IDS: ${{ github.event.inputs.wp_post_ids }}
         run: |
           set -euo pipefail
           echo "🔎 Fetch ACF for: $WP_PAGE_IDS"
-          # Require our fetcher (no silent dummy fallback)
           test -f scripts/fetch-acf.js
-          # Force unauthenticated fetch by clearing auth-related envs locally
-          unset WP_JWT WP_BASIC_USER WP_BASIC_PASS || true
           node scripts/fetch-acf.js "$WP_PAGE_IDS"
-          ls -1 content-*.json id-slug-map.json
 
-      - name: Build PDFs (batch)
+      - name: Build PDFs
         run: |
           set -euo pipefail
-          # まず Tailwind を一度だけビルド（存在する場合のみ）
-          if [ -f ./node_modules/.bin/tailwindcss ] && [ -f ./src/input.css ]; then
-            ./node_modules/.bin/tailwindcss -i ./src/input.css -o ./dist/output.css
-          fi
-
           if [ -f scripts/build-batch.js ]; then
-            # 分割版（推奨構成）
             node scripts/build-batch.js --pdf --out out
-          else
-            # 既存単体 build.js を並列制御で回すフォールバック
-            test -f id-slug-map.json
-            SLUGS=$(jq -r 'to_entries[] | select(.key|test("^[0-9]+$")|not) | .key' id-slug-map.json)
-            echo "🧾 Slugs: $SLUGS"
-            i=0; max="${CONCURRENCY:-2}"; pids=()
-            for slug in $SLUGS; do
-              (
-                export TEMPLATE_TYPE
-                export SLUG="$slug"   # build.js が SLUG or PAGE_ID を読む想定
-                node build.js
-              ) &
-              pids+=($!)
-              i=$((i+1))
-              if [ "$i" -ge "$max" ]; then
-                wait -n || true
-                i=$((i-1))
-              fi
-            done
-            for pid in "${pids[@]}"; do wait "$pid" || true; done
           fi
 
-      - name: Normalize filename to page ID (optional)
-        if: ${{ env.TARGET_SLUG != '' }}
-        run: |
-          set -euo pipefail
-          ID="${TARGET_SLUG}"
-          FIRST=$(ls -1 out/booklet-*.pdf 2>/dev/null | head -n1 || true)
-          if [ -n "${FIRST}" ]; then
-            cp "${FIRST}" "out/booklet-${ID}.pdf"
-            echo "Renamed to out/booklet-${ID}.pdf"
-          else
-            echo "No PDF found to normalize."
-          fi
-
-      - name: List PDFs
-        run: ls -lah out/booklet-*.pdf || echo "no PDFs?"
-
-      - name: Stage PDFs for FTP upload (optional)
-        run: |
-          set -euo pipefail
-          mkdir -p deploy
-          shopt -s nullglob
-          files=(out/booklet-*.pdf)
-          if [ ${#files[@]} -gt 0 ]; then
-            cp out/booklet-*.pdf deploy/
-            echo "UPLOAD_HAS_FILES=1" >> "$GITHUB_ENV"
-            ls -lah deploy/
-          else
-            echo "No PDFs to stage"
-            echo "UPLOAD_HAS_FILES=0" >> "$GITHUB_ENV"
-          fi
-
-      - name: Set FTP target from secret
-        if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' && env.FTP_DESTINATION_PATH != '' }}
-        run: |
-          set -euo pipefail
-          dest="${FTP_DESTINATION_PATH%/}/"
-          echo "FTP_TARGET_DIR=$dest" >> "$GITHUB_ENV"
-          echo "Using FTP_TARGET_DIR='$dest'"
-
-      - name: Upload PDFs to WordPress via FTP (optional)
-        if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' && env.FTP_TARGET_DIR != '' && env.UPLOAD_HAS_FILES == '1' }}
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ env.FTP_SERVER }}
-          username: ${{ env.FTP_USERNAME }}
-          password: ${{ env.FTP_PASSWORD }}
-          protocol: ftp
-          local-dir: deploy/
-          server-dir: ${{ env.FTP_TARGET_DIR }}
-
-      - name: Verify public URL (optional)
-        if: ${{ env.WP_URL != '' && env.TARGET_SLUG != '' }}
-        run: |
-          set -euo pipefail
-          URL="${WP_URL%/}/wp-content/uploads/pdf-booklet/booklet-${TARGET_SLUG}.pdf"
-          echo "Probing: $URL"
-          code=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
-          echo "HTTP: $code"
-          if [ "$code" != "200" ]; then
-            echo "Warning: public URL not returning 200 (got $code)"
-          fi
-
-      - name: Upload PDFs (artifact)
+      - name: Upload PDFs
         uses: actions/upload-artifact@v4
         with:
           name: pdf-booklets
-          path: |
-            out/booklet-*.pdf
+          path: out/booklet-*.pdf
           if-no-files-found: warn
           retention-days: 7
-
-      # 任意: S3/R2/SFTP などの配布先へアップロードが必要なら、ここに追加
-
-      - name: Notify WordPress (webhook) - optional
-        if: ${{ env.WEBHOOK != '' }}
-        env:
-          RUN_ID: ${{ github.run_id }}
-        run: |
-          set -euo pipefail
-          # Collect files from out/ but do not fail if none exist
-          FILES=$((ls -1 out/booklet-*.pdf 2>/dev/null || true) | jq -R . | jq -s .)
-          curl -sS -X POST "$WEBHOOK" \
-            -H "Content-Type: application/json" \
-            -d "{\"run_id\":\"$RUN_ID\",\"files\":$FILES}"
-          echo "📣 Notified: $WEBHOOK"
