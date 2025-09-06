@@ -29,6 +29,19 @@ function is_pdf_booklet_template($template) {
     return array_key_exists($template, $supported_templates);
 }
 
+// 日本時間でのタイムスタンプを取得する関数
+function get_jst_timestamp($timestamp = null) {
+    if ($timestamp === null) {
+        $timestamp = current_time('timestamp');
+    }
+    
+    $date = new DateTime();
+    $date->setTimestamp($timestamp);
+    $date->setTimezone(new DateTimeZone('Asia/Tokyo'));
+    
+    return $date->format('Y-m-d H:i:s');
+}
+
 // PDFブックレット設定ページを追加
 add_action('admin_menu', function(){
     add_options_page('PDFブックレット設定', 'PDFブックレット', 'manage_options', 'pdf-booklet-settings', 'render_pdf_settings_page');
@@ -512,4 +525,345 @@ add_action('admin_init', function() {
         <?php
     });
 });
+
+// 固定ページ編集画面で本文エディタを非表示にする
+add_action('admin_head-post.php', function() {
+    global $post;
+    
+    if ($post && $post->post_type === 'page') {
+        $template = get_page_template_slug($post->ID);
+        
+        // PDF Bookletテンプレートの場合のみ本文エディタを非表示
+        if (is_pdf_booklet_template($template)) {
+            ?>
+            <style>
+            /* 本文エディタを完全に非表示 */
+            #postdivrich,
+            #wp-content-editor-tools,
+            .wp-editor-container {
+                display: none !important;
+            }
+            
+            /* Gutenbergエディタも非表示 */
+            .block-editor-writing-flow,
+            .edit-post-visual-editor,
+            .editor-styles-wrapper {
+                display: none !important;
+            }
+            
+            /* 本文エディタの代替メッセージ */
+            .content-editor-replacement {
+                background: #fff8e1;
+                border: 1px solid #ffb900;
+                border-radius: 4px;
+                padding: 15px;
+                margin: 20px 0;
+            }
+            
+            .content-editor-replacement h3 {
+                margin-top: 0;
+                color: #8a6914;
+            }
+            
+            .content-editor-replacement p {
+                margin-bottom: 0;
+                color: #8a6914;
+            }
+            </style>
+            
+            <script>
+            jQuery(document).ready(function($) {
+                // 本文エディタの代わりに説明メッセージを表示
+                $('#postdivrich').after('<div class="content-editor-replacement"><h3>📝 コンテンツの入力について</h3><p><strong>このページでは固定ページの本文は使用されません。</strong></p><p>PDFに表示するコンテンツは、下記の「PDFブックレット設定」フィールドで入力してください。</p></div>');
+                
+                // ページタイトルの下に説明を追加
+                $('#title').after('<p style="margin: 10px 0; color: #666; font-size: 13px;">💡 このページタイトルはPDFには表示されません。PDFタイトルは下記のACFフィールドで設定してください。</p>');
+            });
+            </script>
+            <?php
+        }
+    }
+});
+
+// 新規ページ作成画面でも同様の処理
+add_action('admin_head-post-new.php', function() {
+    global $typenow;
+    
+    if ($typenow === 'page') {
+        ?>
+        <script>
+        jQuery(document).ready(function($) {
+            // テンプレート変更時の処理
+            $('#page_template').on('change', function() {
+                var template = $(this).val();
+                if (template === 'template-text-photo2.php') {
+                    // PDF Bookletテンプレートが選択された場合
+                    $('#postdivrich').hide();
+                    if ($('.content-editor-replacement').length === 0) {
+                        $('#postdivrich').after('<div class="content-editor-replacement"><h3>📝 コンテンツの入力について</h3><p><strong>このページでは固定ページの本文は使用されません。</strong></p><p>PDFに表示するコンテンツは、下記の「PDFブックレット設定」フィールドで入力してください。</p></div>');
+                    }
+                } else {
+                    // 他のテンプレートの場合は本文エディタを表示
+                    $('#postdivrich').show();
+                    $('.content-editor-replacement').remove();
+                }
+            });
+            
+            // 初期状態でPDF Bookletテンプレートを選択
+            $('#page_template').val('template-text-photo2.php').trigger('change');
+        });
+        </script>
+        <?php
+    }
+});
+
+// ページ編集画面にPDF Bookletウィジェットを追加（日本時間対応）
+add_action('edit_form_after_title', function($post) {
+    if ($post->post_type !== 'page') {
+        return;
+    }
+    
+    $template = get_page_template_slug($post->ID);
+    if (!is_pdf_booklet_template($template)) {
+        return;
+    }
+    
+    $pdf_file = wp_upload_dir()['basedir'] . '/pdf-booklet/booklet-' . $post->ID . '.pdf';
+    $pdf_url = wp_upload_dir()['baseurl'] . '/pdf-booklet/booklet-' . $post->ID . '.pdf';
+    $pdf_exists = file_exists($pdf_file);
+    
+    // 日本時間でのタイムスタンプを取得
+    $pdf_date_jst = '';
+    if ($pdf_exists) {
+        $pdf_timestamp = filemtime($pdf_file);
+        $pdf_date_jst = get_jst_timestamp($pdf_timestamp);
+    }
+    
+    // ページの最終更新日時も日本時間で表示
+    $page_modified_jst = get_jst_timestamp(strtotime($post->post_modified));
+    
+    ?>
+    <div class="pdf-booklet-meta" style="background: #f9f9f9; border: 1px solid #ddd; padding: 15px; margin: 20px 0; border-radius: 4px;">
+        <h3 style="margin-top: 0;">📖 PDFブックレット</h3>
+        
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+            <div style="flex: 1;">
+                <?php if ($pdf_exists): ?>
+                    <span class="dashicons dashicons-yes-alt" style="color: green;"></span>
+                    <strong>PDF生成済み</strong>
+                    <br><small>PDF更新日時: <?php echo esc_html($pdf_date_jst); ?> (JST)</small>
+                <?php else: ?>
+                    <span class="dashicons dashicons-warning" style="color: orange;"></span>
+                    <strong>PDF未生成</strong>
+                <?php endif; ?>
+            </div>
+            
+            <div>
+                <button type="button" class="button button-primary generate-pdf-single" data-page-id="<?php echo $post->ID; ?>">
+                    PDF生成
+                </button>
+                
+                <?php if ($pdf_exists): ?>
+                <a href="<?php echo esc_url($pdf_url); ?>" target="_blank" class="button" style="margin-left: 5px;">
+                    PDF表示
+                </a>
+                <button type="button" class="button delete-pdf-single" data-page-id="<?php echo $post->ID; ?>" style="margin-left: 5px;">
+                    PDF削除
+                </button>
+                <?php endif; ?>
+            </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 12px; color: #666; border-top: 1px solid #ddd; padding-top: 10px;">
+            <div>
+                <strong>使用テンプレート:</strong><br>
+                <?php echo esc_html(pdf_booklet_get_supported_templates()[$template] ?? $template); ?>
+            </div>
+            <div>
+                <strong>ページ最終更新:</strong><br>
+                <?php echo esc_html($page_modified_jst); ?> (JST)
+            </div>
+        </div>
+    </div>
+    
+    <script>
+    jQuery(document).ready(function($) {
+        // PDF生成ボタン（単体）
+        $('.generate-pdf-single').on('click', function() {
+            var pageId = $(this).data('page-id');
+            var button = $(this);
+            
+            if (!confirm('PDFを生成しますか？完了まで数分かかる場合があります。')) {
+                return;
+            }
+            
+            button.prop('disabled', true).text('生成中...');
+            
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'generate_pdf_single',
+                    page_id: pageId,
+                    nonce: '<?php echo wp_create_nonce('pdf_booklet_single'); ?>'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        alert('PDF生成を開始しました。完了まで数分かかる場合があります。');
+                        // 5秒後にページをリロード（PDF状態を更新）
+                        setTimeout(function() {
+                            location.reload();
+                        }, 5000);
+                    } else {
+                        alert('エラー: ' + response.data);
+                    }
+                },
+                error: function() {
+                    alert('通信エラーが発生しました。');
+                },
+                complete: function() {
+                    button.prop('disabled', false).text('PDF生成');
+                }
+            });
+        });
+        
+        // PDF削除ボタン（単体）
+        $('.delete-pdf-single').on('click', function() {
+            if (!confirm('PDFファイルを削除しますか？')) {
+                return;
+            }
+            
+            var pageId = $(this).data('page-id');
+            var button = $(this);
+            
+            button.prop('disabled', true).text('削除中...');
+            
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'delete_pdf_single',
+                    page_id: pageId,
+                    nonce: '<?php echo wp_create_nonce('pdf_booklet_single'); ?>'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        alert('PDFファイルを削除しました。');
+                        location.reload();
+                    } else {
+                        alert('エラー: ' + response.data);
+                    }
+                },
+                error: function() {
+                    alert('通信エラーが発生しました。');
+                },
+                complete: function() {
+                    button.prop('disabled', false).text('PDF削除');
+                }
+            });
+        });
+    });
+    </script>
+    <?php
+});
+
+// AJAX: 単体PDF生成
+add_action('wp_ajax_generate_pdf_single', function() {
+    check_ajax_referer('pdf_booklet_single', 'nonce');
+    
+    $page_id = intval($_POST['page_id']);
+    if (!$page_id) {
+        wp_send_json_error('無効なページIDです。');
+    }
+    
+    // GitHub Actions APIを呼び出し
+    $result = trigger_github_actions_for_page($page_id);
+    
+    if ($result['success']) {
+        wp_send_json_success('PDF生成を開始しました。');
+    } else {
+        wp_send_json_error($result['message']);
+    }
+});
+
+// AJAX: 単体PDF削除
+add_action('wp_ajax_delete_pdf_single', function() {
+    check_ajax_referer('pdf_booklet_single', 'nonce');
+    
+    $page_id = intval($_POST['page_id']);
+    if (!$page_id) {
+        wp_send_json_error('無効なページIDです。');
+    }
+    
+    $pdf_file = wp_upload_dir()['basedir'] . '/pdf-booklet/booklet-' . $page_id . '.pdf';
+    
+    if (file_exists($pdf_file) && unlink($pdf_file)) {
+        wp_send_json_success('PDFファイルを削除しました。');
+    } else {
+        wp_send_json_error('PDFファイルの削除に失敗しました。');
+    }
+});
+
+// GitHub Actions API呼び出し関数
+function trigger_github_actions_for_page($page_id) {
+    $token = get_option('github_actions_token');
+    $repo = get_option('github_repo');
+    $wf_id = get_option('github_workflow_id');
+    
+    if (!$token || !$repo || !$wf_id) {
+        return [
+            'success' => false,
+            'message' => 'GitHub設定が不完全です。設定ページで確認してください。'
+        ];
+    }
+    
+    $url = "https://api.github.com/repos/{$repo}/actions/workflows/{$wf_id}/dispatches";
+    
+    $data = [
+        'ref' => 'main',
+        'inputs' => [
+            'wp_post_ids' => (string)$page_id,
+            'target_slug' => '',
+            'template_type' => '',
+            'concurrency' => '2',
+            'skip_schema' => '0',
+            'allow_dummy' => '0'
+        ]
+    ];
+    
+    $response = wp_remote_post($url, [
+        'headers' => [
+            'Authorization' => 'token ' . $token,
+            'Accept' => 'application/vnd.github.v3+json',
+            'User-Agent' => 'WordPress-PDF-Booklet'
+        ],
+        'body' => json_encode($data),
+        'timeout' => 30
+    ]);
+    
+    if (is_wp_error($response)) {
+        return [
+            'success' => false,
+            'message' => 'GitHub APIへの接続に失敗しました: ' . $response->get_error_message()
+        ];
+    }
+    
+    $status_code = wp_remote_retrieve_response_code($response);
+    
+    if ($status_code === 204) {
+        return [
+            'success' => true,
+            'message' => 'PDF生成を開始しました。'
+        ];
+    } else {
+        $body = wp_remote_retrieve_body($response);
+        $error_data = json_decode($body, true);
+        
+        return [
+            'success' => false,
+            'message' => 'GitHub API エラー (HTTP ' . $status_code . '): ' . ($error_data['message'] ?? 'Unknown error')
+        ];
+    }
+}
+
 ?>
