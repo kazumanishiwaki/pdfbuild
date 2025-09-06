@@ -139,28 +139,41 @@ async function maybeCreatePDF(htmlPath, pdfPath, force = false) {
     
     console.log('🔗 Loading HTML:', fileUrl.href);
     
-    // 外部リソース（フォント・画像）の読み込みを待つ
-    await page.goto(fileUrl.href, { 
-      waitUntil: 'networkidle0',  // ネットワークが2秒間アイドル状態になるまで待つ
-      timeout: 30000  // 30秒でタイムアウト
-    });
+    try {
+      // 外部リソース（フォント・画像）の読み込みを待つ
+      await page.goto(fileUrl.href, { 
+        waitUntil: 'networkidle0',  // ネットワークが2秒間アイドル状態になるまで待つ
+        timeout: 30000  // 30秒でタイムアウト
+      });
+      
+      // フォントの読み込み完了を待つ
+      await page.evaluateHandle('document.fonts.ready');
+      
+      // 少し待ってから画像の読み込み状況を確認
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      console.log('✅ Page loaded successfully, generating PDF...');
+      
+      // PDF生成
+      await page.pdf({ 
+        path: pdfPath, 
+        format: 'A4', 
+        landscape: true, 
+        printBackground: true, 
+        margin: { top: 14, right: 14, bottom: 14, left: 14 },
+        preferCSSPageSize: true
+      });
+      console.log('📄 PDF generated:', pdfPath);
+      
+    } catch (pageError) {
+      console.error('❌ Error during page processing:', pageError.message);
+      console.error('🔍 Stack trace:', pageError.stack);
+      throw pageError;
+    }
     
-    // フォントの読み込み完了を待つ
-    await page.evaluateHandle('document.fonts.ready');
-    
-    // 少し待ってから画像の読み込み状況を確認
-    await page.waitForTimeout(2000);
-    
-    // PDF生成
-    await page.pdf({ 
-      path: pdfPath, 
-      format: 'A4', 
-      landscape: true, 
-      printBackground: true, 
-      margin: { top: 14, right: 14, bottom: 14, left: 14 },
-      preferCSSPageSize: true
-    });
-    console.log('📄 PDF generated:', pdfPath);
+  } catch (browserError) {
+    console.error('❌ Browser error:', browserError.message);
+    throw browserError;
   } finally {
     await browser.close();
   }
