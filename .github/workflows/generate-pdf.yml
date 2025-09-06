@@ -128,14 +128,120 @@ jobs:
       - name: Build PDFs
         run: |
           set -euo pipefail
+          echo "🏗️ Starting PDF build process..."
+          
+          # ビルドスクリプトの存在確認
           if [ -f scripts/build-batch.js ]; then
-            node scripts/build-batch.js --pdf --out out
+            echo "✅ Found build-batch.js"
+          else
+            echo "❌ build-batch.js not found, checking alternatives..."
+            ls -la scripts/
+          fi
+          
+          # 入力ファイルの確認
+          echo "📄 Input files check:"
+          if [ -f id-slug-map.json ]; then
+            echo "✅ id-slug-map.json exists"
+            echo "   Content: $(cat id-slug-map.json)"
+          else
+            echo "❌ id-slug-map.json missing"
+          fi
+          
+          echo "📄 Content files:"
+          ls -la content-*.json || echo "❌ No content-*.json files found"
+          
+          # Tailwindの確認
+          if [ -f ./node_modules/.bin/tailwindcss ] && [ -f ./src/input.css ]; then
+            echo "🎨 Building Tailwind CSS..."
+            ./node_modules/.bin/tailwindcss -i ./src/input.css -o ./dist/output.css
+            echo "✅ Tailwind CSS built"
+          else
+            echo "ℹ️ Tailwind CSS not available (optional)"
+          fi
+          
+          # PDF生成実行
+          if [ -f scripts/build-batch.js ]; then
+            echo "🚀 Running PDF generation..."
+            echo "   Command: node scripts/build-batch.js --pdf --out out"
+            
+            # Node.jsとnpmの確認
+            echo "🔧 Environment check:"
+            echo "   Node version: $(node --version)"
+            echo "   NPM version: $(npm --version)"
+            
+            # 依存関係の確認
+            echo "📦 Dependencies check:"
+            if [ -f package.json ]; then
+              echo "   package.json exists"
+              echo "   Dependencies:"
+              cat package.json | jq '.dependencies // {}' 2>/dev/null || echo "   Could not parse dependencies"
+            fi
+            
+            # build-one.jsの確認
+            if [ -f scripts/build-one.js ]; then
+              echo "✅ scripts/build-one.js exists"
+            else
+              echo "❌ scripts/build-one.js missing - this is required by build-batch.js"
+            fi
+            
+            # 実行
+            if node scripts/build-batch.js --pdf --out out; then
+              echo "✅ PDF generation command completed successfully"
+            else
+              echo "❌ PDF generation failed with exit code $?"
+              echo "🔍 Debugging info:"
+              echo "   Current directory: $(pwd)"
+              echo "   Available files:"
+              ls -la
+              echo "   Scripts directory:"
+              ls -la scripts/
+              exit 1
+            fi
+          else
+            echo "❌ Cannot run PDF generation - build-batch.js missing"
+            exit 1
           fi
 
       - name: List generated PDFs
         run: |
-          echo "📄 Generated PDFs:"
-          ls -lah out/booklet-*.pdf || echo "No PDFs found"
+          echo "📄 Checking PDF generation results..."
+          
+          # outディレクトリの確認
+          if [ -d out ]; then
+            echo "✅ out/ directory exists"
+            echo "📁 Contents of out/ directory:"
+            ls -lah out/ || echo "out/ directory is empty"
+          else
+            echo "❌ out/ directory does not exist"
+          fi
+          
+          # PDF ファイルの確認
+          echo "🔍 Looking for PDF files..."
+          if ls out/booklet-*.pdf 1> /dev/null 2>&1; then
+            echo "✅ PDF files found:"
+            for pdf in out/booklet-*.pdf; do
+              if [ -f "$pdf" ]; then
+                size=$(stat -f%z "$pdf" 2>/dev/null || stat -c%s "$pdf" 2>/dev/null || echo "unknown")
+                echo "   📄 $pdf (${size} bytes)"
+                
+                # PDFファイルの妥当性チェック
+                if [ "$size" -gt 1000 ]; then
+                  echo "      ✅ File size looks reasonable"
+                else
+                  echo "      ⚠️ File size seems too small"
+                  echo "      Content preview:"
+                  head -c 200 "$pdf" | hexdump -C
+                fi
+              fi
+            done
+          else
+            echo "❌ No PDF files found"
+            echo "🔍 Checking for any files in out/:"
+            find out -type f -name "*" 2>/dev/null || echo "No files found in out/"
+            
+            echo "🔍 Checking for HTML files (intermediate):"
+            find . -name "*.html" -newer id-slug-map.json 2>/dev/null || echo "No recent HTML files found"
+          fi
 
       - name: Normalize filename to page ID (optional)
         if: ${{ env.TARGET_SLUG != '' }}
