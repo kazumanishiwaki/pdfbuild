@@ -52,6 +52,7 @@ jobs:
 
     steps:
     
+    
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -335,18 +336,43 @@ jobs:
       - name: Stage PDFs for FTP upload
         run: |
           set -euo pipefail
+          echo "📦 Staging PDFs for FTP upload..."
+          
+          # deployディレクトリの準備
           mkdir -p deploy
+          
+          # out/ディレクトリの確認
+          echo "🔍 Checking out/ directory:"
+          if [ -d out ]; then
+            echo "   ✅ out/ directory exists"
+            ls -la out/
+            echo "   📄 Looking for booklet-*.pdf files:"
+            ls -la out/booklet-*.pdf 2>/dev/null || echo "   ❌ No booklet-*.pdf files found"
+          else
+            echo "   ❌ out/ directory does not exist"
+          fi
+          
+          # PDFファイルの検索とコピー
           shopt -s nullglob
           files=(out/booklet-*.pdf)
+          echo "🔍 Found ${#files[@]} PDF file(s) to stage"
+          
           if [ ${#files[@]} -gt 0 ]; then
+            echo "📋 Files to copy:"
+            for file in "${files[@]}"; do
+              echo "   - $file"
+            done
+            
             cp out/booklet-*.pdf deploy/
             echo "UPLOAD_HAS_FILES=1" >> "$GITHUB_ENV"
-            echo "📦 Staged ${#files[@]} PDF(s) for upload:"
+            echo "✅ Staged ${#files[@]} PDF(s) for upload:"
             ls -lah deploy/
           else
-            echo "⚠️ No PDFs to stage"
+            echo "⚠️ No PDFs to stage - checking for any PDF files in out/"
+            find out -name "*.pdf" -type f 2>/dev/null || echo "   No PDF files found in out/"
             echo "UPLOAD_HAS_FILES=0" >> "$GITHUB_ENV"
           fi
+          shopt -u nullglob
 
       - name: Set FTP target directory
         if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' }}
@@ -380,12 +406,14 @@ jobs:
             echo "   PDF files in deploy/: $file_count"
             
             # 各PDFファイルの詳細
-            for pdf in deploy/*.pdf 2>/dev/null; do
+            shopt -s nullglob
+            for pdf in deploy/*.pdf; do
               if [ -f "$pdf" ]; then
                 size=$(stat -f%z "$pdf" 2>/dev/null || stat -c%s "$pdf" 2>/dev/null || echo "unknown")
                 echo "   📄 $(basename "$pdf"): ${size} bytes"
               fi
             done
+            shopt -u nullglob
           else
             echo "❌ Deploy directory does not exist"
             echo "🔍 Creating deploy directory for debugging..."
