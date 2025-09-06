@@ -52,15 +52,31 @@ function renderHTML(data) {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${title}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
       @page { size: A4 landscape; margin: 14mm; }
-      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color:#111; }
-      h1 { font-size: 28px; margin: 0 0 12px; }
-      p { line-height: 1.6; }
-      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+      body { 
+        font-family: 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif; 
+        color: #111; 
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      h1 { font-size: 28px; margin: 0 0 12px; font-weight: 500; }
+      p { line-height: 1.8; margin: 0 0 16px; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
       figure { margin: 0; }
-      figcaption { font-size: 12px; color: #555; margin-top: 6px; }
-      img { width: 100%; height: auto; border: 1px solid #ddd; }
+      figcaption { font-size: 12px; color: #555; margin-top: 8px; text-align: center; }
+      img { 
+        width: 100%; 
+        height: auto; 
+        border: 1px solid #ddd; 
+        border-radius: 4px;
+        max-height: 300px;
+        object-fit: cover;
+      }
       .page { break-after: page; }
     </style>
   </head>
@@ -122,8 +138,28 @@ async function maybeCreatePDF(htmlPath, pdfPath, force = false) {
     fileUrl.pathname = path.resolve(htmlPath);
     
     console.log('🔗 Loading HTML:', fileUrl.href);
-    await page.goto(fileUrl.href, { waitUntil: 'load' });
-    await page.pdf({ path: pdfPath, format: 'A4', landscape: true, printBackground: true, margin: { top: 14, right: 14, bottom: 14, left: 14 } });
+    
+    // 外部リソース（フォント・画像）の読み込みを待つ
+    await page.goto(fileUrl.href, { 
+      waitUntil: 'networkidle0',  // ネットワークが2秒間アイドル状態になるまで待つ
+      timeout: 30000  // 30秒でタイムアウト
+    });
+    
+    // フォントの読み込み完了を待つ
+    await page.evaluateHandle('document.fonts.ready');
+    
+    // 少し待ってから画像の読み込み状況を確認
+    await page.waitForTimeout(2000);
+    
+    // PDF生成
+    await page.pdf({ 
+      path: pdfPath, 
+      format: 'A4', 
+      landscape: true, 
+      printBackground: true, 
+      margin: { top: 14, right: 14, bottom: 14, left: 14 },
+      preferCSSPageSize: true
+    });
     console.log('📄 PDF generated:', pdfPath);
   } finally {
     await browser.close();
