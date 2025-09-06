@@ -365,9 +365,10 @@ jobs:
       - name: Debug FTP upload conditions
         run: |
           echo "🔍 FTP Upload Debug Information:"
-          echo "   FTP_SERVER: ${FTP_SERVER:+SET}"
-          echo "   FTP_USERNAME: ${FTP_USERNAME:+SET}"
+          echo "   FTP_SERVER: ${FTP_SERVER:+SET} (${FTP_SERVER:-NOT_SET})"
+          echo "   FTP_USERNAME: ${FTP_USERNAME:+SET} (${FTP_USERNAME:-NOT_SET})"
           echo "   FTP_PASSWORD: ${FTP_PASSWORD:+SET}"
+          echo "   FTP_DESTINATION_PATH: ${FTP_DESTINATION_PATH:+SET} (${FTP_DESTINATION_PATH:-NOT_SET})"
           echo "   FTP_TARGET_DIR: ${FTP_TARGET_DIR:-NOT_SET}"
           echo "   UPLOAD_HAS_FILES: ${UPLOAD_HAS_FILES:-NOT_SET}"
           
@@ -377,19 +378,60 @@ jobs:
             ls -la deploy/
             file_count=$(ls -1 deploy/*.pdf 2>/dev/null | wc -l || echo "0")
             echo "   PDF files in deploy/: $file_count"
+            
+            # 各PDFファイルの詳細
+            for pdf in deploy/*.pdf 2>/dev/null; do
+              if [ -f "$pdf" ]; then
+                size=$(stat -f%z "$pdf" 2>/dev/null || stat -c%s "$pdf" 2>/dev/null || echo "unknown")
+                echo "   📄 $(basename "$pdf"): ${size} bytes"
+              fi
+            done
           else
             echo "❌ Deploy directory does not exist"
+            echo "🔍 Creating deploy directory for debugging..."
+            mkdir -p deploy
           fi
           
-          # FTPアップロード実行判定
-          if [ -n "${FTP_SERVER:-}" ] && [ -n "${FTP_USERNAME:-}" ] && [ -n "${FTP_PASSWORD:-}" ] && [ -n "${FTP_TARGET_DIR:-}" ]; then
-            echo "✅ All FTP conditions met - upload should proceed"
+          # out/ディレクトリの確認
+          echo "📁 Out directory contents:"
+          if [ -d out ]; then
+            ls -la out/
+            echo "   PDF files in out/:"
+            ls -1 out/*.pdf 2>/dev/null || echo "   No PDF files in out/"
           else
-            echo "❌ FTP conditions not met - upload will be skipped"
+            echo "   out/ directory does not exist"
+          fi
+          
+          # GitHub Actions条件の詳細チェック
+          echo "🔍 GitHub Actions condition check:"
+          if [ -n "${FTP_SERVER:-}" ]; then
+            echo "   ✅ FTP_SERVER is set"
+          else
+            echo "   ❌ FTP_SERVER is empty or not set"
+          fi
+          
+          if [ -n "${FTP_USERNAME:-}" ]; then
+            echo "   ✅ FTP_USERNAME is set"
+          else
+            echo "   ❌ FTP_USERNAME is empty or not set"
+          fi
+          
+          if [ -n "${FTP_PASSWORD:-}" ]; then
+            echo "   ✅ FTP_PASSWORD is set"
+          else
+            echo "   ❌ FTP_PASSWORD is empty or not set"
+          fi
+          
+          # 最終判定
+          if [ -n "${FTP_SERVER:-}" ] && [ -n "${FTP_USERNAME:-}" ] && [ -n "${FTP_PASSWORD:-}" ]; then
+            echo "✅ All required FTP conditions met - upload should proceed"
+          else
+            echo "❌ Required FTP conditions not met - upload will be skipped"
+            echo "   Please check GitHub Secrets: FTP_SERVER, FTP_USERNAME, FTP_PASSWORD"
           fi
 
       - name: Upload PDFs to WordPress via FTP
-        if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' && env.FTP_TARGET_DIR != '' }}
+        if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' }}
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ env.FTP_SERVER }}
@@ -399,6 +441,20 @@ jobs:
           local-dir: deploy/
           server-dir: ${{ env.FTP_TARGET_DIR }}
           log-level: verbose
+
+      - name: Report FTP upload skipped
+        if: ${{ env.FTP_SERVER == '' || env.FTP_USERNAME == '' || env.FTP_PASSWORD == '' }}
+        run: |
+          echo "⚠️ FTP Upload was SKIPPED"
+          echo "🔍 Reason: Missing required FTP credentials"
+          echo ""
+          echo "📋 Required GitHub Secrets:"
+          echo "   - FTP_SERVER: ${FTP_SERVER:+✅ SET}${FTP_SERVER:-❌ NOT SET}"
+          echo "   - FTP_USERNAME: ${FTP_USERNAME:+✅ SET}${FTP_USERNAME:-❌ NOT SET}"
+          echo "   - FTP_PASSWORD: ${FTP_PASSWORD:+✅ SET}${FTP_PASSWORD:-❌ NOT SET}"
+          echo ""
+          echo "💡 To enable FTP upload, please set these secrets in your GitHub repository:"
+          echo "   Settings → Secrets and variables → Actions → Repository secrets"
 
       - name: Verify public URL (optional)
         if: ${{ env.WP_URL != '' && env.TARGET_SLUG != '' }}
