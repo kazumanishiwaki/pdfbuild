@@ -42,6 +42,7 @@ jobs:
       TEMPLATE_TYPE: ${{ github.event.inputs.template_type }}
       SKIP_SCHEMA: ${{ github.event.inputs.skip_schema }}
       TARGET_SLUG: ${{ github.event.inputs.target_slug }}
+      WEBHOOK: ${{ secrets.WP_WEBHOOK_URL }}
 
     steps:
       - name: Checkout
@@ -138,9 +139,8 @@ jobs:
       # 任意: S3/R2/SFTP などの配布先へアップロードが必要なら、ここに追加
 
       - name: Notify WordPress (webhook) - optional
-        if: ${{ secrets.WP_WEBHOOK_URL != '' }}
+        if: ${{ env.WEBHOOK != '' }}
         env:
-          WEBHOOK: ${{ secrets.WP_WEBHOOK_URL }}
           RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
