@@ -51,7 +51,14 @@ add_action('admin_notices', function() {
 function pdf_booklet_get_supported_templates() {
     // PDFブックレット対応テンプレートをハードコーディングで定義
     $templates = [
-        'template-text-photo2.php'   => 'テキスト+写真2枚形式'
+        'template-heading-text.php'      => '① 見出し＋本文',
+        'template-main-heading-2.php'    => '② 大見出し＋（見出し＋本文）×２',
+        'template-main-heading-3.php'    => '③ 大見出し＋（見出し＋本文）×３',
+        'template-image-caption-1.php'   => '④ 画像＋キャプション',
+        'template-image-caption-2.php'   => '⑤ （画像＋キャプション）×２',
+        'template-image-caption-3.php'   => '⑥ （画像＋キャプション）×３',
+        'template-image-caption-4.php'   => '⑦ （画像＋キャプション）×４',
+        'template-timeline.php'          => '⑧ 年表（年、月、出来事）×100'
     ];
     
     return $templates;
@@ -91,7 +98,10 @@ add_action('add_meta_boxes', function() {
 
 // ページでテンプレート選択を有効にする
 add_filter('theme_page_templates', function($templates) {
-    $templates['template-text-photo2.php'] = 'PDF Booklet:テキスト+写真２枚形式';
+    $pdf_templates = pdf_booklet_get_supported_templates();
+    foreach ($pdf_templates as $file => $name) {
+        $templates[$file] = 'PDF Booklet: ' . $name;
+    }
     return $templates;
 });
 
@@ -680,16 +690,48 @@ add_action('admin_head-post.php', function() {
                     var currentTemplate = '<?php echo esc_js(get_page_template_slug($post->ID ?? 0)); ?>';
                     console.log('Current template from PHP:', currentTemplate);
                     
+                    var templateOptions = {
+                        '': 'デフォルトテンプレート',
+                        'template-heading-text.php': '① 見出し＋本文',
+                        'template-main-heading-2.php': '② 大見出し＋（見出し＋本文）×２',
+                        'template-main-heading-3.php': '③ 大見出し＋（見出し＋本文）×３',
+                        'template-image-caption-1.php': '④ 画像＋キャプション',
+                        'template-image-caption-2.php': '⑤ （画像＋キャプション）×２',
+                        'template-image-caption-3.php': '⑥ （画像＋キャプション）×３',
+                        'template-image-caption-4.php': '⑦ （画像＋キャプション）×４',
+                        'template-timeline.php': '⑧ 年表（年、月、出来事）×100'
+                    };
+                    
+                    var optionsHtml = '';
+                    for (var value in templateOptions) {
+                        var selected = (currentTemplate === value) ? ' selected' : '';
+                        optionsHtml += '<option value="' + value + '"' + selected + '>' + templateOptions[value] + '</option>';
+                    }
+                    
                     var selectorHtml = '<div id="pdf-booklet-template-selector" style="background: #f0f6fc; border: 1px solid #c3c4c7; padding: 15px; margin: 20px 0; border-radius: 4px;">' +
                         '<h3 style="margin-top: 0;">🎨 PDFブックレット テンプレート選択</h3>' +
                         '<p style="margin-bottom: 10px;">このページで使用するテンプレートを選択してください：</p>' +
                         '<select id="pdf-custom-template-selector" name="page_template" style="width: 100%; padding: 8px;">' +
-                        '<option value="">デフォルトテンプレート</option>' +
-                        '<option value="template-text-photo2.php"' + (currentTemplate === 'template-text-photo2.php' ? ' selected' : '') + '>テキスト+写真2枚形式</option>' +
+                        optionsHtml +
                         '</select>' +
                         '<p style="margin-top: 10px; font-size: 12px; color: #666;">' +
-                        '💡 「テキスト+写真2枚形式」を選択すると、PDF生成機能が有効になります。' +
+                        '💡 PDFブックレットテンプレートを選択すると、PDF生成機能が有効になります。' +
                         '</p>' +
+                        '</div>' +
+                        '<div id="pdf-common-fields" style="background: #fff; border: 1px solid #c3c4c7; padding: 15px; margin: 20px 0; border-radius: 4px;">' +
+                        '<h3 style="margin-top: 0;">📝 共通設定</h3>' +
+                        '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">' +
+                        '<div>' +
+                        '<label for="pdf-author-field" style="display: block; margin-bottom: 5px; font-weight: 600;">執筆者</label>' +
+                        '<input type="text" id="pdf-author-field" name="pdf_author" value="<?php echo esc_attr(get_post_meta($post->ID ?? 0, 'pdf_author', true)); ?>" style="width: 100%; padding: 6px 8px;" placeholder="執筆者名を入力">' +
+                        '<p style="font-size: 11px; color: #666; margin: 5px 0 0;">※固定ページ一覧に表示されます（PDFには含まれません）</p>' +
+                        '</div>' +
+                        '<div>' +
+                        '<label for="pdf-page-number-field" style="display: block; margin-bottom: 5px; font-weight: 600;">該当ページ数</label>' +
+                        '<input type="number" id="pdf-page-number-field" name="pdf_page_number" value="<?php echo esc_attr(get_post_meta($post->ID ?? 0, 'pdf_page_number', true)); ?>" style="width: 100%; padding: 6px 8px;" placeholder="ページ数" min="1" max="999">' +
+                        '<p style="font-size: 11px; color: #666; margin: 5px 0 0;">※ソート順に使用されます（PDFには含まれません）</p>' +
+                        '</div>' +
+                        '</div>' +
                         '</div>';
                     
                     // タイトルの後に挿入
@@ -745,12 +787,28 @@ add_action('admin_head-post.php', function() {
                 console.log('Template changed to:', template);
                 console.log('Available templates:', templateElement ? templateElement.find('option').map(function() { return $(this).val() + ':' + $(this).text(); }).get() : 'none');
                 
-                // PDF Bookletテンプレートかどうかを判定（複数の条件で判定）
-                var isPdfBookletTemplate = template === 'template-text-photo2.php' || 
-                                         template === 'PDF Booklet Text Photo2' ||
-                                         template === 'PDF Booklet:テキスト+写真２枚形式' ||
+                // PDF Bookletテンプレートかどうかを判定（新しいテンプレート対応）
+                var pdfTemplates = [
+                    'template-heading-text.php',
+                    'template-main-heading-2.php',
+                    'template-main-heading-3.php',
+                    'template-image-caption-1.php',
+                    'template-image-caption-2.php',
+                    'template-image-caption-3.php',
+                    'template-image-caption-4.php',
+                    'template-timeline.php'
+                ];
+                
+                var isPdfBookletTemplate = pdfTemplates.indexOf(template) !== -1 ||
                                          (templateElement && templateElement.find('option:selected').text().indexOf('PDF Booklet') !== -1) ||
-                                         (templateElement && templateElement.find('option:selected').text().indexOf('テキスト+写真') !== -1);
+                                         (templateElement && templateElement.find('option:selected').text().indexOf('①') !== -1) ||
+                                         (templateElement && templateElement.find('option:selected').text().indexOf('②') !== -1) ||
+                                         (templateElement && templateElement.find('option:selected').text().indexOf('③') !== -1) ||
+                                         (templateElement && templateElement.find('option:selected').text().indexOf('④') !== -1) ||
+                                         (templateElement && templateElement.find('option:selected').text().indexOf('⑤') !== -1) ||
+                                         (templateElement && templateElement.find('option:selected').text().indexOf('⑥') !== -1) ||
+                                         (templateElement && templateElement.find('option:selected').text().indexOf('⑦') !== -1) ||
+                                         (templateElement && templateElement.find('option:selected').text().indexOf('⑧') !== -1);
                 
                 console.log('Is PDF Booklet template:', isPdfBookletTemplate);
                 console.log('Selected option text:', templateElement ? templateElement.find('option:selected').text() : 'none');
@@ -812,9 +870,18 @@ add_action('admin_head-post.php', function() {
                 console.log('Handling custom template change:', template);
                 
                 // PDF Bookletテンプレートかどうかを判定
-                var isPdfBookletTemplate = template === 'template-text-photo2.php' || 
-                                         template.indexOf('PDF Booklet') !== -1 ||
-                                         template.indexOf('テキスト+写真') !== -1;
+                var pdfTemplates = [
+                    'template-heading-text.php',
+                    'template-main-heading-2.php',
+                    'template-main-heading-3.php',
+                    'template-image-caption-1.php',
+                    'template-image-caption-2.php',
+                    'template-image-caption-3.php',
+                    'template-image-caption-4.php',
+                    'template-timeline.php'
+                ];
+                
+                var isPdfBookletTemplate = pdfTemplates.indexOf(template) !== -1;
                 
                 console.log('Is PDF Booklet template (custom):', isPdfBookletTemplate);
                 
@@ -1190,6 +1257,135 @@ add_action('wp_ajax_delete_pdf_single', function() {
         wp_send_json_success('PDFファイルを削除しました。');
     } else {
         wp_send_json_error('PDFファイルの削除に失敗しました。');
+    }
+});
+
+// ページ一覧画面のカスタマイズ
+add_filter('manage_pages_columns', function($columns) {
+    // PDF状態列を追加
+    $columns['pdf_status'] = 'PDF状態';
+    
+    // 執筆者列を追加
+    $columns['pdf_author'] = '執筆者';
+    
+    // 該当ページ数列を追加
+    $columns['pdf_page_number'] = 'ページ数';
+    
+    return $columns;
+});
+
+// ページ一覧の列をソート可能にする
+add_filter('manage_edit-page_sortable_columns', function($columns) {
+    $columns['pdf_author'] = 'pdf_author';
+    $columns['pdf_page_number'] = 'pdf_page_number';
+    return $columns;
+});
+
+// カスタム列のソート処理
+add_action('pre_get_posts', function($query) {
+    if (!is_admin() || !$query->is_main_query()) {
+        return;
+    }
+    
+    $orderby = $query->get('orderby');
+    
+    if ($orderby === 'pdf_author') {
+        $query->set('meta_key', 'pdf_author');
+        $query->set('orderby', 'meta_value');
+    } elseif ($orderby === 'pdf_page_number') {
+        $query->set('meta_key', 'pdf_page_number');
+        $query->set('orderby', 'meta_value_num');
+    }
+});
+
+// デフォルトでページ数順にソート
+add_action('pre_get_posts', function($query) {
+    if (!is_admin() || !$query->is_main_query() || $query->get('post_type') !== 'page') {
+        return;
+    }
+    
+    // 既にorderbyが設定されている場合はスキップ
+    if ($query->get('orderby')) {
+        return;
+    }
+    
+    // PDF Bookletページのみページ数順でソート
+    $template = get_page_template_slug($query->get('p'));
+    if (is_pdf_booklet_template($template)) {
+        $query->set('meta_key', 'pdf_page_number');
+        $query->set('orderby', 'meta_value_num');
+        $query->set('order', 'ASC');
+    }
+});
+
+// カスタム列の内容を表示
+add_action('manage_pages_custom_column', function($column, $post_id) {
+    switch ($column) {
+        case 'pdf_status':
+            $template = get_page_template_slug($post_id);
+            
+            if (is_pdf_booklet_template($template)) {
+                $pdf_file = wp_upload_dir()['basedir'] . '/pdf-booklet/booklet-' . $post_id . '.pdf';
+                $pdf_url = wp_upload_dir()['baseurl'] . '/pdf-booklet/booklet-' . $post_id . '.pdf';
+                
+                if (file_exists($pdf_file)) {
+                    echo '<span class="dashicons dashicons-yes-alt" style="color: green;"></span> ';
+                    echo '<a href="' . esc_url($pdf_url) . '" target="_blank">PDF表示</a>';
+                } else {
+                    echo '<span class="dashicons dashicons-warning" style="color: orange;"></span> 未生成';
+                }
+            } else {
+                echo '<span style="color: #666;">対象外</span>';
+            }
+            break;
+            
+        case 'pdf_author':
+            $author = get_post_meta($post_id, 'pdf_author', true);
+            echo $author ? esc_html($author) : '<span style="color: #666;">未設定</span>';
+            break;
+            
+        case 'pdf_page_number':
+            $page_number = get_post_meta($post_id, 'pdf_page_number', true);
+            if ($page_number) {
+                echo '<strong>' . esc_html($page_number) . '</strong>';
+            } else {
+                echo '<span style="color: #666;">未設定</span>';
+            }
+            break;
+    }
+}, 10, 2);
+
+// カスタムフィールドの保存処理
+add_action('save_post', function($post_id) {
+    // 自動保存時はスキップ
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+        return;
+    }
+    
+    // 権限チェック
+    if (!current_user_can('edit_page', $post_id)) {
+        return;
+    }
+    
+    // 固定ページのみ対象
+    if (get_post_type($post_id) !== 'page') {
+        return;
+    }
+    
+    // 執筆者フィールドの保存
+    if (isset($_POST['pdf_author'])) {
+        $author = sanitize_text_field($_POST['pdf_author']);
+        update_post_meta($post_id, 'pdf_author', $author);
+    }
+    
+    // ページ数フィールドの保存
+    if (isset($_POST['pdf_page_number'])) {
+        $page_number = intval($_POST['pdf_page_number']);
+        if ($page_number > 0) {
+            update_post_meta($post_id, 'pdf_page_number', $page_number);
+        } else {
+            delete_post_meta($post_id, 'pdf_page_number');
+        }
     }
 });
 
