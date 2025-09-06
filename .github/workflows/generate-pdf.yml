@@ -6,6 +6,10 @@ on:
       wp_post_ids:
         description: 'WordPress ページ/投稿ID（カンマ区切り: 123,456,789）'
         required: true
+      target_slug:
+        description: 'ターゲットとなるページIDまたはスラッグ（任意）'
+        required: false
+        default: ''
       template_type:
         description: 'テンプレートタイプ（空なら自動判定）'
         required: false
@@ -37,6 +41,7 @@ jobs:
       CONCURRENCY: ${{ github.event.inputs.concurrency }}
       TEMPLATE_TYPE: ${{ github.event.inputs.template_type }}
       SKIP_SCHEMA: ${{ github.event.inputs.skip_schema }}
+      TARGET_SLUG: ${{ github.event.inputs.target_slug }}
 
     steps:
       - name: Checkout
