@@ -39,6 +39,11 @@ jobs:
       # WP_USER / WP_PASS は「必要時のみ」JWT発行に使う（公開ページだけなら不要）
       WP_USER: ${{ secrets.WP_USER }}
       WP_PASS: ${{ secrets.WP_PASS }}
+      # Optional: pre-issued JWT token (if provided, issuance step will skip)
+      WP_JWT: ${{ secrets.WP_JWT }}
+      # Optional: Basic auth (WordPress Application Passwords)
+      WP_BASIC_USER: ${{ secrets.WP_BASIC_USER }}
+      WP_BASIC_PASS: ${{ secrets.WP_BASIC_PASS }}
 
       # ビルド設定
       ON_ERROR: "continue"                         # 失敗ページがあっても続行（fetch-acf.js対応）
@@ -77,7 +82,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -n "${WP_USER:-}" && -n "${WP_PASS:-}" ]]; then
+          if [[ -n "${WP_JWT:-}" ]]; then
+            echo "🔐 Using pre-provided WP_JWT from secrets"
+          elif [[ -n "${WP_USER:-}" && -n "${WP_PASS:-}" ]]; then
             echo "🔐 Try issuing JWT..."
             RESP=$(curl -sS -X POST "$WP_URL/wp-json/jwt-auth/v1/token" \
               -H "Content-Type: application/json" \
@@ -92,6 +99,21 @@ jobs:
           else
             echo "ℹ️ No WP_USER/WP_PASS provided. Will call API without JWT."
           fi
+
+      - name: Verify JWT (optional)
+        if: ${{ env.WP_JWT != '' }}
+        env:
+          WP_PAGE_IDS: ${{ github.event.inputs.wp_post_ids }}
+        run: |
+          set -euo pipefail
+          FIRST_ID=$(echo "$WP_PAGE_IDS" | awk -F',' '{print $1}' | xargs)
+          if [ -z "$FIRST_ID" ]; then echo "No ID to probe"; exit 0; fi
+          URL1="${WP_URL%/}/wp-json/wp/v2/pages/${FIRST_ID}?_embed"
+          CODE1=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $WP_JWT" "$URL1")
+          echo "JWT probe (wp/v2 pages): $URL1 -> $CODE1"
+          URL2="${WP_URL%/}/wp-json/acf/v3/pages/${FIRST_ID}"
+          CODE2=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $WP_JWT" "$URL2") || CODE2=000
+          echo "JWT probe (acf/v3 pages): $URL2 -> $CODE2"
 
       - name: Fetch ACF JSONs (real data)
         env:
