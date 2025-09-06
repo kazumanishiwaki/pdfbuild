@@ -104,19 +104,44 @@ function buildAuthHeadersFromEnv() {
 }
 
 async function fetchPage(id, base, headers = {}) {
-  const url = `${base.replace(/\/$/, '')}/wp-json/wp/v2/pages/${encodeURIComponent(id)}?_embed`; // 公開はまず無認証で
+  const root = base.replace(/\/$/, '');
+  const pathUrl = `${root}/wp-json/wp/v2/pages/${encodeURIComponent(id)}?_embed`; // 公開はまず無認証で
+  const queryUrl = `${root}/index.php?rest_route=/wp/v2/pages/${encodeURIComponent(id)}&_embed`;
   
-  let res;
   try {
-    res = await getJSON(url, headers);
-    return res;
+    return await getJSON(pathUrl, headers);
   } catch (error) {
+    // WAFブロック検出（XSERVERなど）
+    const wafBlocked = error.status === 403 && /XSERVER Inc\./i.test(error.body || '');
+    if (wafBlocked) {
+      console.warn(`⚠️ WAF block detected: retrying via query route`);
+      try {
+        return await getJSON(queryUrl, headers);
+      } catch (queryError) {
+        console.warn(`⚠️ Query route also failed: ${queryError.status}`);
+        // Query route failed, proceed to auth retry
+        error = queryError;
+      }
+    }
+    
     if (error.status === 403 || error.status === 401) {
       // 403/401時のみ認証でリトライ（未公開やREST制限時に備える）
       console.log(`🔄 Retrying with auth due to ${error.status} error...`);
       const authHeaders = buildAuthHeadersFromEnv();
-      const authUrl = `${base.replace(/\/$/, '')}/wp-json/wp/v2/pages/${encodeURIComponent(id)}?context=edit&_embed`;
-      return getJSON(authUrl, { ...headers, ...authHeaders });
+      const authPathUrl = `${root}/wp-json/wp/v2/pages/${encodeURIComponent(id)}?context=edit&_embed`;
+      const authQueryUrl = `${root}/index.php?rest_route=/wp/v2/pages/${encodeURIComponent(id)}&context=edit&_embed`;
+      
+      try {
+        return await getJSON(authPathUrl, { ...headers, ...authHeaders });
+      } catch (authError) {
+        // Path auth failed, try query auth
+        const authWafBlocked = authError.status === 403 && /XSERVER Inc\./i.test(authError.body || '');
+        if (authWafBlocked) {
+          console.warn(`⚠️ Auth WAF block: retrying via auth query route`);
+          return await getJSON(authQueryUrl, { ...headers, ...authHeaders });
+        }
+        throw authError;
+      }
     }
     throw error;
   }
@@ -124,32 +149,82 @@ async function fetchPage(id, base, headers = {}) {
 
 async function fetchACF(id, base, headers = {}) {
   // Requires ACF to REST API plugin
-  const url = `${base.replace(/\/$/, '')}/wp-json/acf/v3/pages/${encodeURIComponent(id)}`;
+  const root = base.replace(/\/$/, '');
+  const pathUrl = `${root}/wp-json/acf/v3/pages/${encodeURIComponent(id)}`;
+  const queryUrl = `${root}/index.php?rest_route=/acf/v3/pages/${encodeURIComponent(id)}`;
   
   try {
-    return await getJSON(url, headers);
+    return await getJSON(pathUrl, headers);
   } catch (error) {
+    // WAFブロック検出（XSERVERなど）
+    const wafBlocked = error.status === 403 && /XSERVER Inc\./i.test(error.body || '');
+    if (wafBlocked) {
+      console.warn(`⚠️ ACF WAF block detected: retrying via query route`);
+      try {
+        return await getJSON(queryUrl, headers);
+      } catch (queryError) {
+        console.warn(`⚠️ ACF query route also failed: ${queryError.status}`);
+        error = queryError;
+      }
+    }
+    
     if (error.status === 403 || error.status === 401) {
       // 403/401時のみ認証でリトライ
       console.log(`🔄 Retrying ACF with auth due to ${error.status} error...`);
       const authHeaders = buildAuthHeadersFromEnv();
-      return getJSON(url, { ...headers, ...authHeaders });
+      
+      try {
+        return await getJSON(pathUrl, { ...headers, ...authHeaders });
+      } catch (authError) {
+        // Path auth failed, try query auth
+        const authWafBlocked = authError.status === 403 && /XSERVER Inc\./i.test(authError.body || '');
+        if (authWafBlocked) {
+          console.warn(`⚠️ ACF auth WAF block: retrying via auth query route`);
+          return await getJSON(queryUrl, { ...headers, ...authHeaders });
+        }
+        throw authError;
+      }
     }
     throw error;
   }
 }
 
 async function fetchMedia(id, base, headers = {}) {
-  const url = `${base.replace(/\/$/, '')}/wp-json/wp/v2/media/${encodeURIComponent(id)}`;
+  const root = base.replace(/\/$/, '');
+  const pathUrl = `${root}/wp-json/wp/v2/media/${encodeURIComponent(id)}`;
+  const queryUrl = `${root}/index.php?rest_route=/wp/v2/media/${encodeURIComponent(id)}`;
   
   try {
-    return await getJSON(url, headers);
+    return await getJSON(pathUrl, headers);
   } catch (error) {
+    // WAFブロック検出（XSERVERなど）
+    const wafBlocked = error.status === 403 && /XSERVER Inc\./i.test(error.body || '');
+    if (wafBlocked) {
+      console.warn(`⚠️ Media WAF block detected: retrying via query route`);
+      try {
+        return await getJSON(queryUrl, headers);
+      } catch (queryError) {
+        console.warn(`⚠️ Media query route also failed: ${queryError.status}`);
+        error = queryError;
+      }
+    }
+    
     if (error.status === 403 || error.status === 401) {
       // 403/401時のみ認証でリトライ
       console.log(`🔄 Retrying media with auth due to ${error.status} error...`);
       const authHeaders = buildAuthHeadersFromEnv();
-      return getJSON(url, { ...headers, ...authHeaders });
+      
+      try {
+        return await getJSON(pathUrl, { ...headers, ...authHeaders });
+      } catch (authError) {
+        // Path auth failed, try query auth
+        const authWafBlocked = authError.status === 403 && /XSERVER Inc\./i.test(authError.body || '');
+        if (authWafBlocked) {
+          console.warn(`⚠️ Media auth WAF block: retrying via auth query route`);
+          return await getJSON(queryUrl, { ...headers, ...authHeaders });
+        }
+        throw authError;
+      }
     }
     throw error;
   }
