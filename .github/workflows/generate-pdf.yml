@@ -22,6 +22,10 @@ on:
         description: 'スキーマ検証をスキップ（1/true でスキップ）'
         required: false
         default: '0'
+      allow_dummy:
+        description: 'ダミーデータ生成を許可（1/true で許可）'
+        required: false
+        default: '0'
   # 任意: 定期実行したい場合は有効化
   # schedule:
   #   - cron: '0 3 * * *'   # JSTで正午にしたければ '0 3 * * *'（GitHubはUTC）
@@ -43,6 +47,7 @@ jobs:
       SKIP_SCHEMA: ${{ github.event.inputs.skip_schema }}
       TARGET_SLUG: ${{ github.event.inputs.target_slug }}
       WEBHOOK: ${{ secrets.WP_WEBHOOK_URL }}
+      ALLOW_DUMMY: ${{ github.event.inputs.allow_dummy }}
       # FTP（任意: WordPress への配布用・既存Secretsを流用）
       FTP_SERVER: ${{ secrets.FTP_SERVER }}
       FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
@@ -88,29 +93,15 @@ jobs:
             echo "ℹ️ No WP_USER/WP_PASS provided. Will call API without JWT."
           fi
 
-      - name: Fetch ACF JSONs
+      - name: Fetch ACF JSONs (real data)
         env:
           WP_PAGE_IDS: ${{ github.event.inputs.wp_post_ids }}
         run: |
           set -euo pipefail
           echo "🔎 Fetch ACF for: $WP_PAGE_IDS"
-          # scripts/fetch-acf.js（分割版） or ルート直下の fetch-acf.js（単体版）のどちらにも対応
-          if [ -f scripts/fetch-acf.js ]; then
-            node scripts/fetch-acf.js "$WP_PAGE_IDS"
-          elif [ -f fetch-acf.js ]; then
-            node fetch-acf.js "$WP_PAGE_IDS"
-          else
-            echo "⚠️ fetch-acf.js が見つからないためダミーデータを生成します"
-            node -e '
-              const fs = require("fs");
-              const ids = (process.env.WP_PAGE_IDS||"").split(",").map(s=>s.trim()).filter(Boolean);
-              const id = Number(ids[0]||123);
-              const slug = "demo";
-              fs.writeFileSync("id-slug-map.json", JSON.stringify({[String(id)]: slug, [slug]: id}, null, 2));
-              fs.writeFileSync(`content-${slug}.json`, JSON.stringify({ id, slug, template: "text-photo2", title: "Demo from CI", content: "ダミーデータ（CIフォールバック）。", caption1: "", caption2: "" }, null, 2));
-              console.log("wrote id-slug-map.json and content-"+slug+".json");
-            '
-          fi
+          # Require our fetcher (no silent dummy fallback)
+          test -f scripts/fetch-acf.js
+          node scripts/fetch-acf.js "$WP_PAGE_IDS"
           ls -1 content-*.json id-slug-map.json
 
       - name: Build PDFs (batch)
@@ -177,53 +168,13 @@ jobs:
             echo "UPLOAD_HAS_FILES=0" >> "$GITHUB_ENV"
           fi
 
-      - name: Detect FTP destination path (bruteforce)
-        if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' }}
+      - name: Set FTP target from secret
+        if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' && env.FTP_DESTINATION_PATH != '' }}
         run: |
           set -euo pipefail
-          tried_file="ftp-path-check.log"
-          : > "$tried_file"
-          # Build candidate list (both with and without leading slash)
-          add() { local p="$1"; [ -n "$p" ] || return 0; echo "$p"; p2="${p#/}"; if [ "$p2" != "$p" ]; then echo "$p2"; fi; p3="/$p"; if [ "$p3" != "$p" ]; then echo "$p3"; fi; }
-          candidates=()
-          while IFS= read -r line; do candidates+=("$line"); done < <(
-            {
-              add "$FTP_DESTINATION_PATH";
-              # Common hosting layouts
-              add "public_html/ks/wp-content/uploads/pdf-booklet";
-              add "kazumanishiwaki.net/public_html/ks/wp-content/uploads/pdf-booklet";
-              add "wp-content/uploads/pdf-booklet";
-              add "ks/wp-content/uploads/pdf-booklet";
-              add "htdocs/wp-content/uploads/pdf-booklet";
-              add "www/wp-content/uploads/pdf-booklet";
-              add "domains/kazumanishiwaki.net/public_html/ks/wp-content/uploads/pdf-booklet";
-              add "httpdocs/wp-content/uploads/pdf-booklet";
-            } | awk 'NF' | awk '!seen[$0]++'
-          )
-
-          echo "Trying candidate FTP paths (relative to login root):" | tee -a "$tried_file"
-          FTP_TARGET_DIR=""
-          for p in "${candidates[@]}"; do
-            ts="${p%/}/"
-            echo "- $ts" | tee -a "$tried_file"
-            if curl -sS --user "$FTP_USERNAME:$FTP_PASSWORD" --ftp-method nocwd "ftp://$FTP_SERVER/$ts" -l >/dev/null 2>&1; then
-              echo "FOUND: $ts" | tee -a "$tried_file"
-              FTP_TARGET_DIR="$ts"
-              echo "FTP_TARGET_DIR=$ts" >> "$GITHUB_ENV"
-              break
-            fi
-          done
-          if [ -z "$FTP_TARGET_DIR" ]; then
-            echo "No working FTP path detected. Will fall back to FTP_DESTINATION_PATH if provided." | tee -a "$tried_file"
-            if [ -n "${FTP_DESTINATION_PATH:-}" ]; then
-              dest="${FTP_DESTINATION_PATH%/}/"
-              FTP_TARGET_DIR="$dest"
-              echo "FTP_TARGET_DIR=$dest" >> "$GITHUB_ENV"
-            fi
-          fi
-          echo "Using FTP_TARGET_DIR='$FTP_TARGET_DIR'" | tee -a "$tried_file"
-          echo "--- Summary (saved as $tried_file) ---"
-          cat "$tried_file"
+          dest="${FTP_DESTINATION_PATH%/}/"
+          echo "FTP_TARGET_DIR=$dest" >> "$GITHUB_ENV"
+          echo "Using FTP_TARGET_DIR='$dest'"
 
       - name: Upload PDFs to WordPress via FTP (optional)
         if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' && env.FTP_TARGET_DIR != '' && env.UPLOAD_HAS_FILES == '1' }}
@@ -235,6 +186,18 @@ jobs:
           protocol: ftp
           local-dir: deploy/
           server-dir: ${{ env.FTP_TARGET_DIR }}
+
+      - name: Verify public URL (optional)
+        if: ${{ env.WP_URL != '' && env.TARGET_SLUG != '' }}
+        run: |
+          set -euo pipefail
+          URL="${WP_URL%/}/wp-content/uploads/pdf-booklet/booklet-${TARGET_SLUG}.pdf"
+          echo "Probing: $URL"
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+          echo "HTTP: $code"
+          if [ "$code" != "200" ]; then
+            echo "Warning: public URL not returning 200 (got $code)"
+          fi
 
       - name: Upload PDFs (artifact)
         uses: actions/upload-artifact@v4

@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 /*
-  Minimal fetcher for CI bootstrap.
+  Fetch real WordPress data for PDF build.
   Usage: node scripts/fetch-acf.js "123,456"
   Behavior:
-    - If WP_URL is set, it will attempt to GET /wp-json/wp/v2/pages/{id}
-      and read known fields, but will not fail build on fetch errors.
-    - If WP_URL is not set or fetch fails, it writes a single dummy content
-      so downstream build can proceed.
-  Output files in CWD:
+    - Requires WP_URL. Tries wp/v2 pages first, then acf/v3 for ACF fields.
+    - Resolves numeric image IDs to media objects when possible.
+    - If fetch fails: when ALLOW_DUMMY=1 writes a dummy item; otherwise exits 1.
+  Output files:
     - id-slug-map.json
     - content-<slug>.json
 */
@@ -60,16 +59,62 @@ function dummy() {
   });
 }
 
+async function getJSON(url, headers) {
+  const { status, data } = await httpGet(url, headers);
+  if (status >= 200 && status < 300) return JSON.parse(data);
+  const err = new Error(`HTTP ${status} for ${url}`);
+  err.status = status;
+  err.body = data;
+  throw err;
+}
+
+async function fetchPage(id, base, headers) {
+  const url = `${base.replace(/\/$/, '')}/wp-json/wp/v2/pages/${encodeURIComponent(id)}?_embed`;
+  return getJSON(url, headers);
+}
+
+async function fetchACF(id, base, headers) {
+  // Requires ACF to REST API plugin
+  const url = `${base.replace(/\/$/, '')}/wp-json/acf/v3/pages/${encodeURIComponent(id)}`;
+  return getJSON(url, headers);
+}
+
+async function fetchMedia(id, base, headers) {
+  const url = `${base.replace(/\/$/, '')}/wp-json/wp/v2/media/${encodeURIComponent(id)}`;
+  return getJSON(url, headers);
+}
+
+function normalizeImage(val) {
+  if (!val) return null;
+  if (typeof val === 'object' && val.url) return val; // already in ACF image object form
+  if (typeof val === 'number') return { id: val }; // will resolve later
+  return val;
+}
+
+async function enrichImages(content, base, headers) {
+  for (const key of ['photo1', 'photo2']) {
+    const v = content[key];
+    if (v && typeof v === 'object' && v.id && !v.url) {
+      try {
+        const m = await fetchMedia(v.id, base, headers);
+        if (m && m.source_url) content[key] = { url: m.source_url, alt: m.alt_text || '', title: m.title?.rendered || '' };
+      } catch {}
+    }
+  }
+  return content;
+}
+
 async function main() {
   const idsArg = process.argv[2] || '';
   const ids = idsArg.split(',').map((s) => s.trim()).filter(Boolean);
   const WP_URL = process.env.WP_URL || '';
   const WP_JWT = process.env.WP_JWT || '';
+  const ALLOW_DUMMY = /^(1|true|yes)$/i.test(process.env.ALLOW_DUMMY || '');
 
   if (!WP_URL || !ids.length) {
-    console.warn('No WP_URL or empty id list — writing dummy files.');
-    dummy();
-    return;
+    console.error('WP_URL and ids are required to fetch real data.');
+    if (ALLOW_DUMMY) { console.warn('ALLOW_DUMMY=1: writing dummy files.'); dummy(); return; }
+    process.exit(1);
   }
 
   const idSlug = {};
@@ -78,45 +123,49 @@ async function main() {
     try {
       const headers = { 'Accept': 'application/json' };
       if (WP_JWT) headers['Authorization'] = `Bearer ${WP_JWT}`;
-      const url = `${WP_URL.replace(/\/$/, '')}/wp-json/wp/v2/pages/${encodeURIComponent(id)}?_embed`;
-      const { status, data } = await httpGet(url, headers);
-      if (status >= 200 && status < 300) {
-        const page = JSON.parse(data);
-        const slug = page.slug || String(id);
-        idSlug[String(id)] = slug;
-        idSlug[slug] = Number(id);
-        const acf = page.acf || {};
-        const content = {
-          id: Number(id),
-          slug,
-          template: 'text-photo2',
-          title: page.title?.rendered || page.title || slug,
-          content: (page.content?.rendered || '').replace(/<[^>]+>/g, '').slice(0, 200),
-          photo1: acf.photo1 || null,
-          caption1: acf.caption1 || '',
-          photo2: acf.photo2 || null,
-          caption2: acf.caption2 || ''
-        };
-        writeJSON(`content-${slug}.json`, content);
-        wroteAny = true;
-      } else {
-        console.warn(`Fetch failed for id=${id} status=${status}. Falling back to dummy.`);
+      const page = await fetchPage(id, WP_URL, headers);
+      const slug = page.slug || String(id);
+      idSlug[String(id)] = slug;
+      idSlug[slug] = Number(id);
+
+      // Try get ACF via v2 embed first, then acf/v3
+      let acf = page.acf || {};
+      if (!acf || Object.keys(acf).length === 0) {
+        try {
+          const acfResp = await fetchACF(id, WP_URL, headers);
+          if (acfResp && acfResp.acf) acf = acfResp.acf;
+        } catch {}
       }
+
+      const content = {
+        id: Number(id),
+        slug,
+        template: 'text-photo2',
+        title: page.title?.rendered || page.title || slug,
+        content: (page.content?.rendered || '').replace(/<[^>]+>/g, '').trim(),
+        photo1: normalizeImage(acf.photo1 || null),
+        caption1: acf.caption1 || '',
+        photo2: normalizeImage(acf.photo2 || null),
+        caption2: acf.caption2 || ''
+      };
+
+      await enrichImages(content, WP_URL, headers);
+      writeJSON(`content-${slug}.json`, content);
+      wroteAny = true;
     } catch (e) {
       console.warn(`Error fetching id=${id}:`, e.message);
     }
   }
 
-  if (!Object.keys(idSlug).length) {
-    dummy();
-  } else {
-    writeJSON('id-slug-map.json', idSlug);
-    if (!wroteAny) dummy();
+  if (!Object.keys(idSlug).length || !wroteAny) {
+    if (ALLOW_DUMMY) { console.warn('ALLOW_DUMMY=1: writing dummy fallback.'); dummy(); return; }
+    console.error('Failed to fetch any page.');
+    process.exit(1);
   }
+  writeJSON('id-slug-map.json', idSlug);
 }
 
 main().catch((e) => {
   console.error(e);
   process.exit(1);
 });
-
