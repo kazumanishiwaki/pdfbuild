@@ -18,19 +18,38 @@ import http from 'node:http';
 
 function httpGet(url, headers = {}) {
   return new Promise((resolve, reject) => {
+    // ActionsのUAがBot判定されがち。ブラウザ寄りに偽装
+    const debugHeaders = {
+      "Accept": "application/json",
+      "User-Agent": "Mozilla/5.0 (GitHub Actions ACF fetcher)",
+      ...headers
+    };
+    
+    console.log(`→ GET ${url}`);
+    console.log(`→ Headers: ${JSON.stringify(debugHeaders)}`);
+
     const lib = url.startsWith('https') ? https : http;
-    const req = lib.get(url, { headers }, (res) => {
+    const req = lib.get(url, { headers: debugHeaders }, (res) => {
+      console.log(`← Status: ${res.statusCode} ${res.statusMessage}`);
+      console.log(`← Resp headers: ${JSON.stringify(res.headers)}`);
+      
       let data = '';
       res.on('data', (c) => (data += c));
       res.on('end', () => {
         if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+          console.log(`← Body length: ${data.length} chars`);
           resolve({ status: res.statusCode, data });
         } else {
+          // 本文先頭だけでも出すとWAF系メッセージやプラグイン名が見える
+          console.error(`← Body head: ${data.slice(0, 500)}`);
           resolve({ status: res.statusCode || 0, data });
         }
       });
     });
-    req.on('error', reject);
+    req.on('error', (err) => {
+      console.error(`← Error: ${err.message}`);
+      reject(err);
+    });
   });
 }
 
@@ -65,6 +84,8 @@ async function getJSON(url, headers) {
   const err = new Error(`HTTP ${status} for ${url}`);
   err.status = status;
   err.body = data;
+  console.error(`❌ JSON parse failed for ${url}: ${status}`);
+  console.error(`❌ Response body: ${data.slice(0, 1000)}`);
   throw err;
 }
 
@@ -110,6 +131,8 @@ async function main() {
   const WP_URL = process.env.WP_URL || '';
   const WP_JWT = process.env.WP_JWT || '';
   const ALLOW_DUMMY = /^(1|true|yes)$/i.test(process.env.ALLOW_DUMMY || '');
+  const WP_BASIC_USER = process.env.WP_BASIC_USER || process.env.WP_APP_USER || '';
+  const WP_BASIC_PASS = process.env.WP_BASIC_PASS || process.env.WP_APP_PASS || '';
 
   if (!WP_URL || !ids.length) {
     console.error('WP_URL and ids are required to fetch real data.');
@@ -120,21 +143,39 @@ async function main() {
   const idSlug = {};
   let wroteAny = false;
   for (const id of ids) {
+    console.log(`\n🔍 Processing page ID: ${id}`);
     try {
       const headers = { 'Accept': 'application/json' };
-      if (WP_JWT) headers['Authorization'] = `Bearer ${WP_JWT}`;
+      if (WP_JWT) {
+        headers['Authorization'] = `Bearer ${WP_JWT}`;
+        console.log(`🔐 Using JWT auth`);
+      } else if (WP_BASIC_USER && WP_BASIC_PASS) {
+        const token = Buffer.from(`${WP_BASIC_USER}:${WP_BASIC_PASS}`).toString('base64');
+        headers['Authorization'] = `Basic ${token}`;
+        console.log(`🔐 Using Basic auth`);
+      } else {
+        console.log(`🔓 No auth (public access)`);
+      }
       const page = await fetchPage(id, WP_URL, headers);
       const slug = page.slug || String(id);
+      console.log(`✅ Page fetched: ${slug} (ID: ${id})`);
       idSlug[String(id)] = slug;
       idSlug[slug] = Number(id);
 
       // Try get ACF via v2 embed first, then acf/v3
       let acf = page.acf || {};
+      console.log(`📋 ACF from embed: ${Object.keys(acf).length} fields`);
       if (!acf || Object.keys(acf).length === 0) {
         try {
+          console.log(`🔄 Trying ACF v3 API...`);
           const acfResp = await fetchACF(id, WP_URL, headers);
-          if (acfResp && acfResp.acf) acf = acfResp.acf;
-        } catch {}
+          if (acfResp && acfResp.acf) {
+            acf = acfResp.acf;
+            console.log(`✅ ACF v3: ${Object.keys(acf).length} fields`);
+          }
+        } catch (e) {
+          console.warn(`⚠️ ACF v3 failed: ${e.message}`);
+        }
       }
 
       const content = {
@@ -151,9 +192,12 @@ async function main() {
 
       await enrichImages(content, WP_URL, headers);
       writeJSON(`content-${slug}.json`, content);
+      console.log(`💾 Saved: content-${slug}.json`);
       wroteAny = true;
     } catch (e) {
-      console.warn(`Error fetching id=${id}:`, e.message);
+      console.error(`❌ Error fetching id=${id}:`, e.message);
+      if (e.status) console.error(`❌ HTTP Status: ${e.status}`);
+      if (e.body) console.error(`❌ Response: ${e.body.slice(0, 500)}`);
     }
   }
 
