@@ -232,8 +232,19 @@ async function fetchMedia(id, base, headers = {}) {
 
 function normalizeImage(val) {
   if (!val) return null;
-  if (typeof val === 'object' && val.url) return val; // already in ACF image object form
-  if (typeof val === 'number') return { id: val }; // will resolve later
+  
+  // 既にオブジェクト形式でURLがある場合
+  if (typeof val === 'object' && val.url) return val;
+  
+  // 数値ID（メディアID）の場合
+  if (typeof val === 'number') return { id: val };
+  
+  // 文字列URLの場合はオブジェクト形式に変換
+  if (typeof val === 'string' && val.startsWith('http')) {
+    return { url: val };
+  }
+  
+  // その他の場合はそのまま返す
   return val;
 }
 
@@ -297,12 +308,20 @@ async function main() {
         }
       }
 
+      // コンテンツの取得（ACFのcontentフィールドを優先、なければpage.content）
+      let contentText = '';
+      if (acf.content && acf.content.trim()) {
+        contentText = acf.content.trim();
+      } else if (page.content?.rendered) {
+        contentText = page.content.rendered.replace(/<[^>]+>/g, '').trim();
+      }
+      
       const content = {
         id: Number(id),
         slug,
         template: 'text-photo2',
-        title: page.title?.rendered || page.title || slug,
-        content: (page.content?.rendered || '').replace(/<[^>]+>/g, '').trim(),
+        title: acf.title || page.title?.rendered || page.title || slug,
+        content: contentText,
         photo1: normalizeImage(acf.photo1 || null),
         caption1: acf.caption1 || '',
         photo2: normalizeImage(acf.photo2 || null),

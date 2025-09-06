@@ -169,11 +169,23 @@ jobs:
               echo "   Content length: ${#CONTENT} characters"
               echo "   Content preview: ${CONTENT:0:200}..."
               
-              # 画像の確認
-              PHOTO1=$(cat "$file" | jq -r '.photo1.url // .photo1 // "N/A"')
-              PHOTO2=$(cat "$file" | jq -r '.photo2.url // .photo2 // "N/A"')
-              echo "   Photo1 URL: $PHOTO1"
-              echo "   Photo2 URL: $PHOTO2"
+              # 画像の確認（型に応じて適切に取得）
+              PHOTO1_TYPE=$(cat "$file" | jq -r 'type_of(.photo1)')
+              if [ "$PHOTO1_TYPE" = "object" ]; then
+                PHOTO1=$(cat "$file" | jq -r '.photo1.url // "N/A"')
+              else
+                PHOTO1=$(cat "$file" | jq -r '.photo1 // "N/A"')
+              fi
+              
+              PHOTO2_TYPE=$(cat "$file" | jq -r 'type_of(.photo2)')
+              if [ "$PHOTO2_TYPE" = "object" ]; then
+                PHOTO2=$(cat "$file" | jq -r '.photo2.url // "N/A"')
+              else
+                PHOTO2=$(cat "$file" | jq -r '.photo2 // "N/A"')
+              fi
+              
+              echo "   Photo1 URL: $PHOTO1 (type: $PHOTO1_TYPE)"
+              echo "   Photo2 URL: $PHOTO2 (type: $PHOTO2_TYPE)"
               
               # キャプションの確認
               echo "   Caption1: $(cat "$file" | jq -r '.caption1 // "N/A"')"
