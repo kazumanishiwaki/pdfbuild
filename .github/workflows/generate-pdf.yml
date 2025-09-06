@@ -43,6 +43,11 @@ jobs:
       SKIP_SCHEMA: ${{ github.event.inputs.skip_schema }}
       TARGET_SLUG: ${{ github.event.inputs.target_slug }}
       WEBHOOK: ${{ secrets.WP_WEBHOOK_URL }}
+      # FTP（任意: WordPress への配布用・既存Secretsを流用）
+      FTP_SERVER: ${{ secrets.FTP_SERVER }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+      FTP_DESTINATION_PATH: ${{ secrets.FTP_DESTINATION_PATH }}
 
     steps:
       - name: Checkout
@@ -141,8 +146,38 @@ jobs:
             for pid in "${pids[@]}"; do wait "$pid" || true; done
           fi
 
+      - name: Normalize filename to page ID (optional)
+        if: ${{ env.TARGET_SLUG != '' }}
+        run: |
+          set -euo pipefail
+          ID="${TARGET_SLUG}"
+          FIRST=$(ls -1 out/booklet-*.pdf 2>/dev/null | head -n1 || true)
+          if [ -n "${FIRST}" ]; then
+            cp "${FIRST}" "out/booklet-${ID}.pdf"
+            echo "Renamed to out/booklet-${ID}.pdf"
+          else
+            echo "No PDF found to normalize."
+          fi
+
       - name: List PDFs
         run: ls -lah out/booklet-*.pdf || echo "no PDFs?"
+
+      - name: Stage PDFs for FTP upload (optional)
+        run: |
+          set -euo pipefail
+          mkdir -p deploy
+          cp out/booklet-*.pdf deploy/ 2>/dev/null || echo "No PDFs to stage"
+
+      - name: Upload PDFs to WordPress via FTP (optional)
+        if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' && env.FTP_DESTINATION_PATH != '' }}
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ env.FTP_SERVER }}
+          username: ${{ env.FTP_USERNAME }}
+          password: ${{ env.FTP_PASSWORD }}
+          protocol: ftp
+          local-dir: deploy/
+          server-dir: ${{ env.FTP_DESTINATION_PATH }}
 
       - name: Upload PDFs (artifact)
         uses: actions/upload-artifact@v4
