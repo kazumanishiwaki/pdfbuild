@@ -141,22 +141,54 @@ jobs:
           if [ -f id-slug-map.json ]; then
             echo "📋 ID-Slug mapping:"
             cat id-slug-map.json | jq .
+          else
+            echo "❌ id-slug-map.json not found!"
           fi
           
           # content-*.jsonファイルの確認
           for file in content-*.json; do
             if [ -f "$file" ]; then
-              echo "📄 Content file: $file"
+              echo ""
+              echo "📄 ===== Content file: $file ====="
+              
+              # ファイル全体の内容を表示
+              echo "📝 Complete file contents:"
+              cat "$file" | jq . || cat "$file"
+              
+              echo ""
+              echo "🔍 Data analysis:"
+              
+              # 各フィールドの詳細確認
+              echo "   ID: $(cat "$file" | jq -r '.id // "N/A"')"
+              echo "   Slug: $(cat "$file" | jq -r '.slug // "N/A"')"
+              echo "   Title: $(cat "$file" | jq -r '.title // "N/A"')"
+              echo "   Template: $(cat "$file" | jq -r '.template // "N/A"')"
+              
+              # コンテンツの確認
+              CONTENT=$(cat "$file" | jq -r '.content // "N/A"')
+              echo "   Content length: ${#CONTENT} characters"
+              echo "   Content preview: ${CONTENT:0:200}..."
+              
+              # 画像の確認
+              PHOTO1=$(cat "$file" | jq -r '.photo1.url // .photo1 // "N/A"')
+              PHOTO2=$(cat "$file" | jq -r '.photo2.url // .photo2 // "N/A"')
+              echo "   Photo1 URL: $PHOTO1"
+              echo "   Photo2 URL: $PHOTO2"
+              
+              # キャプションの確認
+              echo "   Caption1: $(cat "$file" | jq -r '.caption1 // "N/A"')"
+              echo "   Caption2: $(cat "$file" | jq -r '.caption2 // "N/A"')"
+              
               # ダミーデータかどうかチェック
               if grep -q "Demo Booklet\|ダミーの本文" "$file"; then
                 echo "⚠️ WARNING: $file contains DUMMY data!"
-                echo "   Title: $(cat "$file" | jq -r '.title // "N/A"')"
-                echo "   Content preview: $(cat "$file" | jq -r '.content // "N/A"' | head -c 100)..."
               else
-                echo "✅ $file appears to contain real data"
-                echo "   Title: $(cat "$file" | jq -r '.title // "N/A"')"
-                echo "   Content preview: $(cat "$file" | jq -r '.content // "N/A"' | head -c 100)..."
+                echo "✅ $file appears to contain real WordPress data"
               fi
+              
+              echo "📄 ===== End of $file ====="
+            else
+              echo "❌ No content-*.json files found!"
             fi
           done
 
@@ -350,13 +382,24 @@ jobs:
           fi
 
       - name: Upload PDFs (artifact)
+        if: ${{ hashFiles('out/booklet-*.pdf') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: pdf-booklets
           path: |
             out/booklet-*.pdf
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 7
+
+      - name: Report if no PDFs generated
+        if: ${{ hashFiles('out/booklet-*.pdf') == '' }}
+        run: |
+          echo "⚠️ No PDF files were generated"
+          echo "🔍 This indicates a problem in the PDF generation process"
+          echo "📁 Current out/ directory contents:"
+          ls -la out/ || echo "out/ directory does not exist"
+          echo "📄 Available files in workspace:"
+          find . -name "*.json" -o -name "*.html" -o -name "*.pdf" | head -20
 
       - name: Notify WordPress (webhook) - optional
         if: ${{ env.WEBHOOK != '' }}

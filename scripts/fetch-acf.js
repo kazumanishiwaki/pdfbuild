@@ -310,6 +310,17 @@ async function main() {
       };
 
       await enrichImages(content, WP_URL, headers);
+      
+      // デバッグ: 生成されたコンテンツの詳細をログ出力
+      console.log(`\n📊 Generated content for ID ${id}:`);
+      console.log(`   Title: "${content.title}"`);
+      console.log(`   Content: "${content.content.substring(0, 100)}${content.content.length > 100 ? '...' : ''}"`);
+      console.log(`   Photo1: ${content.photo1?.url || 'N/A'}`);
+      console.log(`   Caption1: "${content.caption1}"`);
+      console.log(`   Photo2: ${content.photo2?.url || 'N/A'}`);
+      console.log(`   Caption2: "${content.caption2}"`);
+      console.log(`   Template: ${content.template}`);
+      
       // ファイル名はID名を使用（日本語エンコード問題を回避）
       writeJSON(`content-${filename}.json`, content);
       console.log(`💾 Saved: content-${filename}.json`);
