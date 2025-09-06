@@ -161,9 +161,9 @@ jobs:
           RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
-          FILES=$(ls -1 booklet-*.pdf 2>/dev/null | jq -R . | jq -s .)
+          # Collect files from out/ but do not fail if none exist
+          FILES=$((ls -1 out/booklet-*.pdf 2>/dev/null || true) | jq -R . | jq -s .)
           curl -sS -X POST "$WEBHOOK" \
             -H "Content-Type: application/json" \
             -d "{\"run_id\":\"$RUN_ID\",\"files\":$FILES}"
           echo "📣 Notified: $WEBHOOK"
-
