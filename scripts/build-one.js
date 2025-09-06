@@ -116,7 +116,13 @@ async function maybeCreatePDF(htmlPath, pdfPath, force = false) {
   });
   try {
     const page = await browser.newPage();
-    await page.goto('file://' + htmlPath, { waitUntil: 'load' });
+    
+    // ファイルパスを正しいfile:// URLに変換
+    const fileUrl = new URL('file://');
+    fileUrl.pathname = path.resolve(htmlPath);
+    
+    console.log('🔗 Loading HTML:', fileUrl.href);
+    await page.goto(fileUrl.href, { waitUntil: 'load' });
     await page.pdf({ path: pdfPath, format: 'A4', landscape: true, printBackground: true, margin: { top: 14, right: 14, bottom: 14, left: 14 } });
     console.log('📄 PDF generated:', pdfPath);
   } finally {

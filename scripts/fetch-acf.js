@@ -275,6 +275,9 @@ async function main() {
       const page = await fetchPage(id, WP_URL, headers);
       const slug = page.slug || String(id);
       console.log(`✅ Page fetched: ${slug} (ID: ${id})`);
+      
+      // ファイル名はID名を使用（日本語エンコード問題を回避）
+      const filename = String(id);
       idSlug[String(id)] = slug;
       idSlug[slug] = Number(id);
 
@@ -307,8 +310,9 @@ async function main() {
       };
 
       await enrichImages(content, WP_URL, headers);
-      writeJSON(`content-${slug}.json`, content);
-      console.log(`💾 Saved: content-${slug}.json`);
+      // ファイル名はID名を使用（日本語エンコード問題を回避）
+      writeJSON(`content-${filename}.json`, content);
+      console.log(`💾 Saved: content-${filename}.json`);
       wroteAny = true;
     } catch (e) {
       console.error(`❌ Error fetching id=${id}:`, e.message);
