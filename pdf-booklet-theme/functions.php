@@ -3,6 +3,40 @@
  * functions.php – Page‑specific PDF generation & button
  */
 
+// デバッグ用: functions.phpが読み込まれているかを確認
+error_log('PDF Booklet functions.php loaded at ' . date('Y-m-d H:i:s'));
+
+// Mixed Content問題を解決: HTTPSでの画像URL強制
+add_filter('wp_get_attachment_url', function($url) {
+    return str_replace('http://', 'https://', $url);
+});
+
+add_filter('wp_get_attachment_image_src', function($image) {
+    if (is_array($image) && isset($image[0])) {
+        $image[0] = str_replace('http://', 'https://', $image[0]);
+    }
+    return $image;
+});
+
+// デバッグ用: WordPressの管理画面でアラートを表示
+add_action('admin_notices', function() {
+    if (current_user_can('manage_options')) {
+        $current_theme = wp_get_theme();
+        $theme_name = $current_theme->get('Name');
+        $theme_dir = get_template_directory();
+        
+        echo '<div class="notice notice-info is-dismissible">';
+        echo '<p><strong>PDF Booklet Debug:</strong></p>';
+        echo '<ul>';
+        echo '<li>functions.phpが正常に読み込まれました</li>';
+        echo '<li>現在のテーマ: ' . esc_html($theme_name) . '</li>';
+        echo '<li>テーマディレクトリ: ' . esc_html($theme_dir) . '</li>';
+        echo '<li>PDF対応テンプレート: ' . implode(', ', array_keys(pdf_booklet_get_supported_templates())) . '</li>';
+        echo '</ul>';
+        echo '</div>';
+    }
+});
+
 /**
  * PDF Booklet システム
  * 
@@ -526,62 +560,139 @@ add_action('admin_init', function() {
     });
 });
 
-// 固定ページ編集画面で本文エディタを非表示にする
+// 固定ページ編集画面で本文エディタを非表示にする（強制実行版）
 add_action('admin_head-post.php', function() {
-    global $post;
+    global $post, $typenow;
     
-    if ($post && $post->post_type === 'page') {
-        $template = get_page_template_slug($post->ID);
-        
-        // PDF Bookletテンプレートの場合のみ本文エディタを非表示
-        if (is_pdf_booklet_template($template)) {
-            ?>
-            <style>
-            /* 本文エディタを完全に非表示 */
-            #postdivrich,
-            #wp-content-editor-tools,
-            .wp-editor-container {
-                display: none !important;
-            }
-            
-            /* Gutenbergエディタも非表示 */
-            .block-editor-writing-flow,
-            .edit-post-visual-editor,
-            .editor-styles-wrapper {
-                display: none !important;
-            }
-            
-            /* 本文エディタの代替メッセージ */
-            .content-editor-replacement {
-                background: #fff8e1;
-                border: 1px solid #ffb900;
-                border-radius: 4px;
-                padding: 15px;
-                margin: 20px 0;
-            }
-            
-            .content-editor-replacement h3 {
-                margin-top: 0;
-                color: #8a6914;
-            }
-            
-            .content-editor-replacement p {
-                margin-bottom: 0;
-                color: #8a6914;
-            }
-            </style>
-            
-            <script>
-            jQuery(document).ready(function($) {
-                // 本文エディタの代わりに説明メッセージを表示
-                $('#postdivrich').after('<div class="content-editor-replacement"><h3>📝 コンテンツの入力について</h3><p><strong>このページでは固定ページの本文は使用されません。</strong></p><p>PDFに表示するコンテンツは、下記の「PDFブックレット設定」フィールドで入力してください。</p></div>');
-                
-                // ページタイトルの下に説明を追加
-                $('#title').after('<p style="margin: 10px 0; color: #666; font-size: 13px;">💡 このページタイトルはPDFには表示されません。PDFタイトルは下記のACFフィールドで設定してください。</p>');
-            });
-            </script>
-            <?php
+    // デバッグ出力
+    error_log('admin_head-post.php hook triggered');
+    
+    if (($post && $post->post_type === 'page') || $typenow === 'page') {
+        $template = '';
+        if ($post) {
+            $template = get_page_template_slug($post->ID);
         }
+        error_log('Page ID: ' . ($post ? $post->ID : 'new') . ', Template: ' . $template);
+        
+        // 常にPDF Booklet用のJavaScriptとCSSを読み込み（動的対応）
+        error_log('Loading PDF Booklet scripts for all page editing');
+        ?>
+        <style>
+        /* PDF Booklet用スタイル */
+        .pdf-booklet-active #postdivrich,
+        .pdf-booklet-active #wp-content-editor-tools,
+        .pdf-booklet-active .wp-editor-container {
+            display: none !important;
+        }
+        
+        /* Gutenbergエディタも非表示 */
+        .pdf-booklet-active .block-editor-writing-flow,
+        .pdf-booklet-active .edit-post-visual-editor,
+        .pdf-booklet-active .editor-styles-wrapper {
+            display: none !important;
+        }
+        
+        /* 本文エディタの代替メッセージ */
+        .content-editor-replacement {
+            background: #fff8e1;
+            border: 1px solid #ffb900;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        .content-editor-replacement h3 {
+            margin-top: 0;
+            color: #8a6914;
+        }
+        
+        .content-editor-replacement p {
+            margin-bottom: 0;
+            color: #8a6914;
+        }
+        
+        /* PDF Bookletウィジェット用スタイル */
+        .pdf-booklet-meta {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        </style>
+        
+        <script>
+        jQuery(document).ready(function($) {
+            console.log('PDF Booklet script loaded');
+            
+            // テンプレート変更を監視する関数
+            function handleTemplateChange() {
+                var template = $('#page_template').val();
+                console.log('Template changed to:', template);
+                
+                if (template === 'template-text-photo2.php') {
+                    console.log('PDF Booklet template selected');
+                    
+                    // bodyにクラスを追加
+                    $('body').addClass('pdf-booklet-active');
+                    
+                    // 説明メッセージを追加（重複チェック）
+                    if ($('.content-editor-replacement').length === 0) {
+                        $('#postdivrich').after('<div class="content-editor-replacement"><h3>📝 コンテンツの入力について</h3><p><strong>このページでは固定ページの本文は使用されません。</strong></p><p>PDFに表示するコンテンツは、下記の「PDFブックレット設定」フィールドで入力してください。</p></div>');
+                    }
+                    
+                    // タイトル下の説明を追加（重複チェック）
+                    if ($('#title').next('p').length === 0) {
+                        $('#title').after('<p style="margin: 10px 0; color: #666; font-size: 13px;">💡 このページタイトルはPDFには表示されません。PDFタイトルは下記のACFフィールドで設定してください。</p>');
+                    }
+                    
+                    // PDF Bookletウィジェットを追加（ACFがない場合の代替）
+                    addPdfBookletWidget();
+                    
+                } else {
+                    console.log('Other template selected');
+                    $('body').removeClass('pdf-booklet-active');
+                    $('.content-editor-replacement').remove();
+                    $('#title').next('p').remove();
+                    $('.pdf-booklet-meta').remove();
+                }
+            }
+            
+            // PDF Bookletウィジェットを追加する関数
+            function addPdfBookletWidget() {
+                if ($('.pdf-booklet-meta').length === 0) {
+                    var postId = $('#post_ID').val() || 'new';
+                    var widgetHtml = '<div class="pdf-booklet-meta">' +
+                        '<h3 style="margin-top: 0;">📖 PDFブックレット</h3>' +
+                        '<div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">' +
+                        '<div style="flex: 1;">' +
+                        '<span class="dashicons dashicons-warning" style="color: orange;"></span>' +
+                        '<strong>PDF未生成</strong>' +
+                        '</div>' +
+                        '<div>' +
+                        '<button type="button" class="button button-primary" disabled>PDF生成 (保存後に利用可能)</button>' +
+                        '</div>' +
+                        '</div>' +
+                        '<div style="font-size: 12px; color: #666; border-top: 1px solid #ddd; padding-top: 10px;">' +
+                        '<strong>注意:</strong> PDFを生成するには、まずページを保存してください。' +
+                        '</div>' +
+                        '</div>';
+                    
+                    $('#postdivrich').before(widgetHtml);
+                }
+            }
+            
+            // 初期状態をチェック
+            handleTemplateChange();
+            
+            // テンプレート変更イベントを監視
+            $('#page_template').on('change', handleTemplateChange);
+            
+            // ページ読み込み時に再度チェック
+            setTimeout(handleTemplateChange, 1000);
+        });
+        </script>
+        <?php
     }
 });
 
@@ -593,24 +704,13 @@ add_action('admin_head-post-new.php', function() {
         ?>
         <script>
         jQuery(document).ready(function($) {
-            // テンプレート変更時の処理
-            $('#page_template').on('change', function() {
-                var template = $(this).val();
-                if (template === 'template-text-photo2.php') {
-                    // PDF Bookletテンプレートが選択された場合
-                    $('#postdivrich').hide();
-                    if ($('.content-editor-replacement').length === 0) {
-                        $('#postdivrich').after('<div class="content-editor-replacement"><h3>📝 コンテンツの入力について</h3><p><strong>このページでは固定ページの本文は使用されません。</strong></p><p>PDFに表示するコンテンツは、下記の「PDFブックレット設定」フィールドで入力してください。</p></div>');
-                    }
-                } else {
-                    // 他のテンプレートの場合は本文エディタを表示
-                    $('#postdivrich').show();
-                    $('.content-editor-replacement').remove();
-                }
-            });
+            console.log('New page script loaded');
             
             // 初期状態でPDF Bookletテンプレートを選択
-            $('#page_template').val('template-text-photo2.php').trigger('change');
+            setTimeout(function() {
+                $('#page_template').val('template-text-photo2.php').trigger('change');
+                console.log('Auto-selected PDF Booklet template');
+            }, 500);
         });
         </script>
         <?php
@@ -619,14 +719,22 @@ add_action('admin_head-post-new.php', function() {
 
 // ページ編集画面にPDF Bookletウィジェットを追加（日本時間対応）
 add_action('edit_form_after_title', function($post) {
+    error_log('edit_form_after_title hook triggered for post ID: ' . $post->ID);
+    
     if ($post->post_type !== 'page') {
+        error_log('Not a page, skipping PDF widget');
         return;
     }
     
     $template = get_page_template_slug($post->ID);
+    error_log('Template for page ' . $post->ID . ': ' . $template);
+    
     if (!is_pdf_booklet_template($template)) {
+        error_log('Not a PDF Booklet template, skipping widget');
         return;
     }
+    
+    error_log('Adding PDF Booklet widget for page ' . $post->ID);
     
     $pdf_file = wp_upload_dir()['basedir'] . '/pdf-booklet/booklet-' . $post->ID . '.pdf';
     $pdf_url = wp_upload_dir()['baseurl'] . '/pdf-booklet/booklet-' . $post->ID . '.pdf';
