@@ -97,6 +97,12 @@ jobs:
           
           echo "✅ Workspace created: $WORK_DIR"
           echo "✅ Scripts copied to: $WORK_DIR/scripts/"
+          
+          # デバッグ: ワークスペースの内容確認
+          echo "📁 Workspace contents:"
+          ls -la "$WORK_DIR"
+          echo "📁 Scripts directory:"
+          ls -la "$WORK_DIR/scripts"
 
       - name: Fetch ACF (public first)
         env:
@@ -110,10 +116,11 @@ jobs:
           ALLOW_DUMMY: 0
         run: |
           set -euo pipefail
-          cd "$WORK_DIR"
           echo "🔎 Fetch ACF for: $WP_PAGE_IDS"
           echo "🌐 WordPress URL: $WP_URL"
           echo "🎛️ ALLOW_DUMMY: ${ALLOW_DUMMY:-0}"
+          echo "🏗️ Workspace directory: $WORK_DIR"
+          echo "📁 Current directory: $(pwd)"
           
           # 必須パラメータの確認
           if [ -z "${WP_URL:-}" ]; then
@@ -147,6 +154,17 @@ jobs:
           
           # fetch-acf.jsの実行（詳細ログ付き）
           echo "🚀 Running fetch-acf.js in workspace: $WORK_DIR"
+          
+          # ワークディレクトリの存在確認
+          if [ ! -d "$WORK_DIR" ]; then
+            echo "❌ ERROR: Workspace directory $WORK_DIR does not exist!"
+            echo "🔍 Available directories:"
+            ls -la
+            echo "🔍 Environment variables:"
+            env | grep -E "(WORK_DIR|OUT_DIR|DEPLOY_DIR)" || echo "No workspace env vars found"
+            exit 1
+          fi
+          
           cd "$WORK_DIR"
           if node scripts/fetch-acf.js "$WP_PAGE_IDS"; then
             echo "✅ fetch-acf.js completed successfully"
