@@ -11,6 +11,40 @@ if (!headers_sent()) {
 // デバッグ用: functions.phpが読み込まれているかを確認
 error_log('PDF Booklet functions.php loaded at ' . date('Y-m-d H:i:s'));
 
+// ========================================
+// ACF JSON設定
+// ========================================
+
+// ACF JSONファイルの保存パスを設定
+add_filter('acf/settings/save_json', function($path) {
+    return get_stylesheet_directory() . '/acf-json';
+});
+
+// ACF JSONファイルの読み込みパスを設定
+add_filter('acf/settings/load_json', function($paths) {
+    // 既存のパスを削除
+    unset($paths[0]);
+    
+    // 新しいパスを追加
+    $paths[] = get_stylesheet_directory() . '/acf-json';
+    
+    return $paths;
+});
+
+// ACFフィールドグループの読み込み確認（デバッグ用）
+add_action('acf/init', function() {
+    error_log('ACF initialized - checking field groups');
+    
+    if (function_exists('acf_get_field_groups')) {
+        $groups = acf_get_field_groups();
+        error_log('ACF field groups found: ' . count($groups));
+        
+        foreach ($groups as $group) {
+            error_log('Field group: ' . $group['title'] . ' (key: ' . $group['key'] . ')');
+        }
+    }
+});
+
 // Mixed Content問題を解決: HTTPSでの画像URL強制
 add_filter('wp_get_attachment_url', function($url) {
     return str_replace('http://', 'https://', $url);
