@@ -82,7 +82,13 @@ jobs:
           
           # 実行ごとに独立したディレクトリを作成
           WORK_DIR="work-${{ github.run_id }}"
-          mkdir -p "$WORK_DIR"/{out,deploy}
+          mkdir -p "$WORK_DIR"/{out,deploy,scripts}
+          
+          # 必要なスクリプトファイルをコピー
+          cp scripts/build-one.js "$WORK_DIR/scripts/"
+          cp scripts/build-batch.js "$WORK_DIR/scripts/"
+          cp scripts/fetch-acf.js "$WORK_DIR/scripts/"
+          cp package.json "$WORK_DIR/" 2>/dev/null || echo "package.json not found, skipping"
           
           # 環境変数として設定
           echo "WORK_DIR=$WORK_DIR" >> "$GITHUB_ENV"
@@ -90,6 +96,7 @@ jobs:
           echo "DEPLOY_DIR=$WORK_DIR/deploy" >> "$GITHUB_ENV"
           
           echo "✅ Workspace created: $WORK_DIR"
+          echo "✅ Scripts copied to: $WORK_DIR/scripts/"
 
       - name: Fetch ACF (public first)
         env:
@@ -103,6 +110,7 @@ jobs:
           ALLOW_DUMMY: 0
         run: |
           set -euo pipefail
+          cd "$WORK_DIR"
           echo "🔎 Fetch ACF for: $WP_PAGE_IDS"
           echo "🌐 WordPress URL: $WP_URL"
           echo "🎛️ ALLOW_DUMMY: ${ALLOW_DUMMY:-0}"
@@ -140,7 +148,7 @@ jobs:
           # fetch-acf.jsの実行（詳細ログ付き）
           echo "🚀 Running fetch-acf.js in workspace: $WORK_DIR"
           cd "$WORK_DIR"
-          if node ../scripts/fetch-acf.js "$WP_PAGE_IDS"; then
+          if node scripts/fetch-acf.js "$WP_PAGE_IDS"; then
             echo "✅ fetch-acf.js completed successfully"
           else
             echo "❌ fetch-acf.js failed with exit code $?"
@@ -168,7 +176,7 @@ jobs:
         run: |
           echo "🏗️ Building PDFs in: $WORK_DIR"
           cd "$WORK_DIR"
-          node ../scripts/build-batch.js --pdf --out out
+          node scripts/build-batch.js --pdf --out out
 
       - name: Verify PDFs generated
         run: |
