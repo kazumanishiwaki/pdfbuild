@@ -66,7 +66,11 @@ function dummy() {
     photo2: {
       url: 'data:image/svg+xml;utf8,<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" width="800" height="450"><rect width="100%" height="100%" fill="%23e5e7eb"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="40" fill="%236b7280">PHOTO 2</text></svg>'
     },
-    caption2: '写真2のキャプション（ダミー）'
+    caption2: '写真2のキャプション（ダミー）',
+    modified: new Date().toISOString(),
+    // 共通フィールド
+    pdf_author: 'ダミー執筆者',
+    pdf_page_number: 1
   });
 }
 
@@ -240,8 +244,103 @@ function normalizeImage(val) {
   return val;
 }
 
+// テンプレートタイプを検出
+function detectTemplateType(templateSlug) {
+  const templateMap = {
+    'template-heading-text.php': 'heading-text',
+    'template-main-heading-2.php': 'main-heading-2',
+    'template-main-heading-3.php': 'main-heading-3',
+    'template-image-caption-1.php': 'image-caption-1',
+    'template-image-caption-2.php': 'image-caption-2',
+    'template-image-caption-3.php': 'image-caption-3',
+    'template-image-caption-4.php': 'image-caption-4',
+    'template-timeline.php': 'timeline',
+    // 後方互換性
+    'template-text-photo2.php': 'text-photo2'
+  };
+  
+  return templateMap[templateSlug] || 'default';
+}
+
+// テンプレート別フィールド処理
+function processTemplateFields(content, acf, templateType) {
+  switch (templateType) {
+    case 'heading-text':
+      content.heading = acf.heading || '';
+      content.content = acf.content || '';
+      break;
+      
+    case 'main-heading-2':
+      content.main_heading = acf.main_heading || '';
+      content.section_1 = acf.section_1 || { heading: '', content: '' };
+      content.section_2 = acf.section_2 || { heading: '', content: '' };
+      break;
+      
+    case 'main-heading-3':
+      content.main_heading = acf.main_heading || '';
+      content.section_1 = acf.section_1 || { heading: '', content: '' };
+      content.section_2 = acf.section_2 || { heading: '', content: '' };
+      content.section_3 = acf.section_3 || { heading: '', content: '' };
+      break;
+      
+    case 'image-caption-1':
+      content.image = normalizeImage(acf.image);
+      content.caption = acf.caption || '';
+      break;
+      
+    case 'image-caption-2':
+      content.image_1 = normalizeImage(acf.image_1);
+      content.caption_1 = acf.caption_1 || '';
+      content.image_2 = normalizeImage(acf.image_2);
+      content.caption_2 = acf.caption_2 || '';
+      break;
+      
+    case 'image-caption-3':
+      content.image_1 = normalizeImage(acf.image_1);
+      content.caption_1 = acf.caption_1 || '';
+      content.image_2 = normalizeImage(acf.image_2);
+      content.caption_2 = acf.caption_2 || '';
+      content.image_3 = normalizeImage(acf.image_3);
+      content.caption_3 = acf.caption_3 || '';
+      break;
+      
+    case 'image-caption-4':
+      content.image_1 = normalizeImage(acf.image_1);
+      content.caption_1 = acf.caption_1 || '';
+      content.image_2 = normalizeImage(acf.image_2);
+      content.caption_2 = acf.caption_2 || '';
+      content.image_3 = normalizeImage(acf.image_3);
+      content.caption_3 = acf.caption_3 || '';
+      content.image_4 = normalizeImage(acf.image_4);
+      content.caption_4 = acf.caption_4 || '';
+      break;
+      
+    case 'timeline':
+      content.timeline_title = acf.timeline_title || '';
+      content.timeline_items = acf.timeline_items || [];
+      break;
+      
+    case 'text-photo2':
+    default:
+      // 後方互換性：既存のtext-photo2テンプレート
+      content.content = acf.content || '';
+      content.photo1 = normalizeImage(acf.photo1);
+      content.caption1 = acf.caption1 || '';
+      content.photo2 = normalizeImage(acf.photo2);
+      content.caption2 = acf.caption2 || '';
+      break;
+  }
+}
+
 async function enrichImages(content, base, headers) {
-  for (const key of ['photo1', 'photo2']) {
+  // 全ての可能な画像フィールドをチェック
+  const imageFields = [
+    'photo1', 'photo2', // 後方互換性
+    'image', // image-caption-1
+    'image_1', 'image_2', 'image_3', 'image_4' // image-caption-2,3,4
+  ];
+  
+  for (const key of imageFields) {
     const v = content[key];
     if (v && typeof v === 'object' && v.id && !v.url) {
       try {
@@ -300,26 +399,24 @@ async function main() {
         }
       }
 
-      // コンテンツの取得（ACFのcontentフィールドのみ使用、固定ページ本文は使わない）
-      let contentText = '';
-      if (acf.content && acf.content.trim()) {
-        contentText = acf.content.trim();
-      } else {
-        contentText = ''; // ACFのcontentフィールドが空の場合は空文字
-      }
+      // テンプレート検出
+      const templateSlug = page.template || 'default';
+      const templateType = detectTemplateType(templateSlug);
       
+      // 基本コンテンツオブジェクト
       const content = {
         id: Number(id),
         slug,
-        template: 'text-photo2',
-        title: acf.title || slug,
-        content: contentText,
-        photo1: normalizeImage(acf.photo1 || null),
-        caption1: acf.caption1 || '',
-        photo2: normalizeImage(acf.photo2 || null),
-        caption2: acf.caption2 || '',
-        modified: page.modified || page.date || new Date().toISOString()
+        template: templateType,
+        title: acf.title || page.title?.rendered || slug,
+        modified: page.modified || page.date || new Date().toISOString(),
+        // 共通フィールド（PDFには出力しない）
+        pdf_author: acf.pdf_author || '',
+        pdf_page_number: acf.pdf_page_number || null
       };
+
+      // テンプレート別フィールド処理
+      processTemplateFields(content, acf, templateType);
 
       await enrichImages(content, WP_URL, headers);
       

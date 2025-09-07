@@ -37,13 +37,140 @@ function htmlEscape(s = '') {
     .replace(/'/g, '&#39;');
 }
 
+// テンプレート別コンテンツ生成
+function generateTemplateContent(data, template) {
+  switch (template) {
+    case 'heading-text':
+      return `
+        ${data.heading ? `<h2>${htmlEscape(data.heading)}</h2>` : ''}
+        ${data.content ? `<p>${htmlEscape(data.content)}</p>` : ''}
+      `;
+      
+    case 'main-heading-2':
+      return `
+        ${data.main_heading ? `<h2>${htmlEscape(data.main_heading)}</h2>` : ''}
+        ${generateSection(data.section_1)}
+        ${generateSection(data.section_2)}
+      `;
+      
+    case 'main-heading-3':
+      return `
+        ${data.main_heading ? `<h2>${htmlEscape(data.main_heading)}</h2>` : ''}
+        ${generateSection(data.section_1)}
+        ${generateSection(data.section_2)}
+        ${generateSection(data.section_3)}
+      `;
+      
+    case 'image-caption-1':
+      return generateImageBlock(data.image, data.caption);
+      
+    case 'image-caption-2':
+      return `
+        <div class="grid">
+          ${generateImageBlock(data.image_1, data.caption_1)}
+          ${generateImageBlock(data.image_2, data.caption_2)}
+        </div>
+      `;
+      
+    case 'image-caption-3':
+      return `
+        <div class="image-grid-3">
+          ${generateImageBlock(data.image_1, data.caption_1)}
+          ${generateImageBlock(data.image_2, data.caption_2)}
+          ${generateImageBlock(data.image_3, data.caption_3)}
+        </div>
+      `;
+      
+    case 'image-caption-4':
+      return `
+        <div class="grid">
+          ${generateImageBlock(data.image_1, data.caption_1)}
+          ${generateImageBlock(data.image_2, data.caption_2)}
+          ${generateImageBlock(data.image_3, data.caption_3)}
+          ${generateImageBlock(data.image_4, data.caption_4)}
+        </div>
+      `;
+      
+    case 'timeline':
+      return generateTimeline(data.timeline_title, data.timeline_items);
+      
+    case 'text-photo2':
+    default:
+      // 後方互換性：既存のtext-photo2テンプレート
+      const content = htmlEscape(data.content || '');
+      const p1 = data.photo1?.url || '';
+      const c1 = htmlEscape(data.caption1 || '');
+      const p2 = data.photo2?.url || '';
+      const c2 = htmlEscape(data.caption2 || '');
+      
+      return `
+        ${content ? `<p>${content}</p>` : ''}
+        <div class="grid">
+          <figure>
+            ${p1 ? `<img src="${p1}" alt="" />` : ''}
+            ${c1 ? `<figcaption>${c1}</figcaption>` : ''}
+          </figure>
+          <figure>
+            ${p2 ? `<img src="${p2}" alt="" />` : ''}
+            ${c2 ? `<figcaption>${c2}</figcaption>` : ''}
+          </figure>
+        </div>
+      `;
+  }
+}
+
+// セクション生成（見出し+本文）
+function generateSection(section) {
+  if (!section) return '';
+  return `
+    <div class="section">
+      ${section.heading ? `<h3>${htmlEscape(section.heading)}</h3>` : ''}
+      ${section.content ? `<p>${htmlEscape(section.content)}</p>` : ''}
+    </div>
+  `;
+}
+
+// 画像ブロック生成
+function generateImageBlock(image, caption) {
+  if (!image?.url) return '<figure></figure>';
+  return `
+    <figure>
+      <img src="${image.url}" alt="${htmlEscape(image.alt || '')}" />
+      ${caption ? `<figcaption>${htmlEscape(caption)}</figcaption>` : ''}
+    </figure>
+  `;
+}
+
+// 年表生成
+function generateTimeline(title, items) {
+  if (!items || !Array.isArray(items)) return '';
+  
+  return `
+    ${title ? `<h2>${htmlEscape(title)}</h2>` : ''}
+    <table class="timeline-table">
+      <thead>
+        <tr>
+          <th>年</th>
+          <th>月</th>
+          <th>出来事</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map(item => `
+          <tr>
+            <td>${item.year || ''}</td>
+            <td>${item.month ? item.month + '月' : ''}</td>
+            <td>${htmlEscape(item.event || '')}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
 function renderHTML(data) {
   const title = htmlEscape(data.title || 'Untitled');
-  const content = htmlEscape(data.content || '');
-  const p1 = data.photo1?.url || '';
-  const c1 = htmlEscape(data.caption1 || '');
-  const p2 = data.photo2?.url || '';
-  const c2 = htmlEscape(data.caption2 || '');
+  const template = data.template || 'text-photo2';
   
   // 日本時間でのタイムスタンプを生成（WordPressページの更新日時を優先）
   const modifiedDate = data.modified ? new Date(data.modified) : new Date();
@@ -87,7 +214,11 @@ function renderHTML(data) {
         border-bottom: 1px solid #eee; 
         padding-bottom: 10px; 
       }
+      h2 { font-size: 24px; margin: 20px 0 12px; font-weight: 500; color: #333; }
+      h3 { font-size: 18px; margin: 16px 0 8px; font-weight: 500; color: #444; }
+      .section { margin: 20px 0; }
       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+      .image-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-top: 20px; }
       figure { margin: 0; }
       figcaption { font-size: 12px; color: #555; margin-top: 8px; text-align: center; }
       img { 
@@ -98,6 +229,30 @@ function renderHTML(data) {
         max-height: 300px;
         object-fit: cover;
       }
+      .timeline-table { 
+        width: 100%; 
+        border-collapse: collapse; 
+        margin-top: 20px; 
+        font-size: 14px;
+      }
+      .timeline-table th, .timeline-table td { 
+        border: 1px solid #ddd; 
+        padding: 8px 12px; 
+        text-align: left; 
+      }
+      .timeline-table th { 
+        background-color: #f5f5f5; 
+        font-weight: 500; 
+      }
+      .timeline-table td:first-child { 
+        width: 80px; 
+        text-align: center; 
+        font-weight: 500; 
+      }
+      .timeline-table td:nth-child(2) { 
+        width: 60px; 
+        text-align: center; 
+      }
       .page { break-after: page; }
     </style>
   </head>
@@ -105,17 +260,7 @@ function renderHTML(data) {
     <section class="page">
       <div class="timestamp">最終更新: ${jstTimestamp}</div>
       <h1>${title}</h1>
-      ${content ? `<p>${content}</p>` : ''}
-      <div class="grid">
-        <figure>
-          ${p1 ? `<img src="${p1}" alt="" />` : ''}
-          ${c1 ? `<figcaption>${c1}</figcaption>` : ''}
-        </figure>
-        <figure>
-          ${p2 ? `<img src="${p2}" alt="" />` : ''}
-          ${c2 ? `<figcaption>${c2}</figcaption>` : ''}
-        </figure>
-      </div>
+      ${generateTemplateContent(data, template)}
     </section>
   </body>
   </html>`;
