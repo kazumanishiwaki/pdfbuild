@@ -723,21 +723,6 @@ add_action('admin_head-post.php', function() {
                         '💡 PDFブックレットテンプレートを選択すると、PDF生成機能が有効になります。' +
                         '</p>' +
                         '</div>' +
-                        '<div id="pdf-common-fields" style="background: #fff; border: 1px solid #c3c4c7; padding: 15px; margin: 20px 0; border-radius: 4px;">' +
-                        '<h3 style="margin-top: 0;">📝 共通設定</h3>' +
-                        '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">' +
-                        '<div>' +
-                        '<label for="pdf-author-field" style="display: block; margin-bottom: 5px; font-weight: 600;">執筆者</label>' +
-                        '<input type="text" id="pdf-author-field" name="pdf_author" value="<?php echo esc_attr(get_post_meta($post->ID ?? 0, 'pdf_author', true)); ?>" style="width: 100%; padding: 6px 8px;" placeholder="執筆者名を入力">' +
-                        '<p style="font-size: 11px; color: #666; margin: 5px 0 0;">※固定ページ一覧に表示されます（PDFには含まれません）</p>' +
-                        '</div>' +
-                        '<div>' +
-                        '<label for="pdf-page-number-field" style="display: block; margin-bottom: 5px; font-weight: 600;">該当ページ数</label>' +
-                        '<input type="number" id="pdf-page-number-field" name="pdf_page_number" value="<?php echo esc_attr(get_post_meta($post->ID ?? 0, 'pdf_page_number', true)); ?>" style="width: 100%; padding: 6px 8px;" placeholder="ページ数" min="1" max="999">' +
-                        '<p style="font-size: 11px; color: #666; margin: 5px 0 0;">※ソート順に使用されます（PDFには含まれません）</p>' +
-                        '</div>' +
-                        '</div>' +
-                        '</div>';
                     
                     // タイトルの後に挿入
                     if ($('#titlewrap').length) {
@@ -1266,42 +1251,7 @@ add_action('wp_ajax_delete_pdf_single', function() {
 });
 
 
-// カスタム列のソート処理
-add_action('pre_get_posts', function($query) {
-    if (!is_admin() || !$query->is_main_query()) {
-        return;
-    }
-    
-    $orderby = $query->get('orderby');
-    
-    if ($orderby === 'pdf_author') {
-        $query->set('meta_key', 'pdf_author');
-        $query->set('orderby', 'meta_value');
-    } elseif ($orderby === 'pdf_page_number') {
-        $query->set('meta_key', 'pdf_page_number');
-        $query->set('orderby', 'meta_value_num');
-    }
-});
 
-// デフォルトでページ数順にソート
-add_action('pre_get_posts', function($query) {
-    if (!is_admin() || !$query->is_main_query() || $query->get('post_type') !== 'page') {
-        return;
-    }
-    
-    // 既にorderbyが設定されている場合はスキップ
-    if ($query->get('orderby')) {
-        return;
-    }
-    
-    // PDF Bookletページのみページ数順でソート
-    $template = get_page_template_slug($query->get('p'));
-    if (is_pdf_booklet_template($template)) {
-        $query->set('meta_key', 'pdf_page_number');
-        $query->set('orderby', 'meta_value_num');
-        $query->set('order', 'ASC');
-    }
-});
 
 
 
@@ -1402,7 +1352,8 @@ add_filter('manage_edit-page_sortable_columns', function($columns) {
     return $columns;
 });
 
-// ソート処理
+
+// ACFフィールドを使用したソート処理
 add_action('pre_get_posts', function($query) {
     if (!is_admin() || !$query->is_main_query()) {
         return;
@@ -1410,19 +1361,13 @@ add_action('pre_get_posts', function($query) {
     
     $orderby = $query->get('orderby');
     
+    // ページ数でのソート
     if ($orderby === 'pdf_page_number') {
         $query->set('meta_key', 'pdf_page_number');
         $query->set('orderby', 'meta_value_num');
     }
-});
-
-// デフォルトソートをページ数の昇順に設定
-add_action('pre_get_posts', function($query) {
-    if (!is_admin() || !$query->is_main_query()) {
-        return;
-    }
     
-    // 固定ページ一覧画面でのみ適用
+    // 固定ページ一覧でのデフォルトソート（ページ数昇順）
     if ($query->get('post_type') === 'page' && !$query->get('orderby')) {
         $query->set('meta_key', 'pdf_page_number');
         $query->set('orderby', 'meta_value_num');

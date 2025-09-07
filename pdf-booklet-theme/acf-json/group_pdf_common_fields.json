@@ -7,7 +7,7 @@
             "label": "該当ページ数",
             "name": "pdf_page_number",
             "type": "number",
-            "instructions": "このページに該当するページ数を入力してください（PDFには出力されません）",
+            "instructions": "このページに該当するページ数を入力してください。固定ページ一覧でのソート順に使用されます（PDFには出力されません）",
             "required": 0,
             "conditional_logic": 0,
             "wrapper": {
