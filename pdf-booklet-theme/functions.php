@@ -1265,26 +1265,6 @@ add_action('wp_ajax_delete_pdf_single', function() {
     }
 });
 
-// ページ一覧画面のカスタマイズ
-add_filter('manage_pages_columns', function($columns) {
-    // PDF状態列を追加
-    $columns['pdf_status'] = 'PDF状態';
-    
-    // 執筆者列を追加
-    $columns['pdf_author'] = '執筆者';
-    
-    // 該当ページ数列を追加
-    $columns['pdf_page_number'] = 'ページ数';
-    
-    return $columns;
-});
-
-// ページ一覧の列をソート可能にする
-add_filter('manage_edit-page_sortable_columns', function($columns) {
-    $columns['pdf_author'] = 'pdf_author';
-    $columns['pdf_page_number'] = 'pdf_page_number';
-    return $columns;
-});
 
 // カスタム列のソート処理
 add_action('pre_get_posts', function($query) {
@@ -1323,76 +1303,7 @@ add_action('pre_get_posts', function($query) {
     }
 });
 
-// カスタム列の内容を表示
-add_action('manage_pages_custom_column', function($column, $post_id) {
-    switch ($column) {
-        case 'pdf_status':
-            $template = get_page_template_slug($post_id);
-            
-            if (is_pdf_booklet_template($template)) {
-                $pdf_file = wp_upload_dir()['basedir'] . '/pdf-booklet/booklet-' . $post_id . '.pdf';
-                $pdf_url = wp_upload_dir()['baseurl'] . '/pdf-booklet/booklet-' . $post_id . '.pdf';
-                
-                if (file_exists($pdf_file)) {
-                    echo '<span class="dashicons dashicons-yes-alt" style="color: green;"></span> ';
-                    echo '<a href="' . esc_url($pdf_url) . '" target="_blank">PDF表示</a>';
-                } else {
-                    echo '<span class="dashicons dashicons-warning" style="color: orange;"></span> 未生成';
-                }
-            } else {
-                echo '<span style="color: #666;">対象外</span>';
-            }
-            break;
-            
-        case 'pdf_author':
-            $author = get_post_meta($post_id, 'pdf_author', true);
-            echo $author ? esc_html($author) : '<span style="color: #666;">未設定</span>';
-            break;
-            
-        case 'pdf_page_number':
-            $page_number = get_post_meta($post_id, 'pdf_page_number', true);
-            if ($page_number) {
-                echo '<strong>' . esc_html($page_number) . '</strong>';
-            } else {
-                echo '<span style="color: #666;">未設定</span>';
-            }
-            break;
-    }
-}, 10, 2);
 
-// カスタムフィールドの保存処理
-add_action('save_post', function($post_id) {
-    // 自動保存時はスキップ
-    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
-        return;
-    }
-    
-    // 権限チェック
-    if (!current_user_can('edit_pages') || !current_user_can('edit_post', $post_id)) {
-        return;
-    }
-    
-    // 固定ページのみ対象
-    if (get_post_type($post_id) !== 'page') {
-        return;
-    }
-    
-    // 執筆者フィールドの保存
-    if (isset($_POST['pdf_author'])) {
-        $author = sanitize_text_field($_POST['pdf_author']);
-        update_post_meta($post_id, 'pdf_author', $author);
-    }
-    
-    // ページ数フィールドの保存
-    if (isset($_POST['pdf_page_number'])) {
-        $page_number = intval($_POST['pdf_page_number']);
-        if ($page_number > 0) {
-            update_post_meta($post_id, 'pdf_page_number', $page_number);
-        } else {
-            delete_post_meta($post_id, 'pdf_page_number');
-        }
-    }
-});
 
 // GitHub Actions API呼び出し関数
 function trigger_github_actions_for_page($page_id) {
