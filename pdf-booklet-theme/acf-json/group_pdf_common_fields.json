@@ -1,13 +1,13 @@
 {
     "key": "group_pdf_common_fields",
-    "title": "PDFブックレット共通フィールド",
+    "title": "ページ共通フィールド",
     "fields": [
         {
             "key": "field_pdf_page_number",
             "label": "該当ページ数",
             "name": "pdf_page_number",
             "type": "number",
-            "instructions": "このページに該当するページ数を入力してください。固定ページ一覧でのソート順に使用されます（PDFには出力されません）",
+            "instructions": "このページに該当するページ数を入力してください。固定ページ一覧でのソート順に使用されます（すべてのページで利用可能、PDFには出力されません）",
             "required": 0,
             "conditional_logic": 0,
             "wrapper": {
@@ -27,58 +27,9 @@
     "location": [
         [
             {
-                "param": "page_template",
+                "param": "post_type",
                 "operator": "==",
-                "value": "template-heading-text.php"
-            }
-        ],
-        [
-            {
-                "param": "page_template",
-                "operator": "==",
-                "value": "template-main-heading-2.php"
-            }
-        ],
-        [
-            {
-                "param": "page_template",
-                "operator": "==",
-                "value": "template-main-heading-3.php"
-            }
-        ],
-        [
-            {
-                "param": "page_template",
-                "operator": "==",
-                "value": "template-image-caption-1.php"
-            }
-        ],
-        [
-            {
-                "param": "page_template",
-                "operator": "==",
-                "value": "template-image-caption-2.php"
-            }
-        ],
-        [
-            {
-                "param": "page_template",
-                "operator": "==",
-                "value": "template-image-caption-3.php"
-            }
-        ],
-        [
-            {
-                "param": "page_template",
-                "operator": "==",
-                "value": "template-image-caption-4.php"
-            }
-        ],
-        [
-            {
-                "param": "page_template",
-                "operator": "==",
-                "value": "template-timeline.php"
+                "value": "page"
             }
         ]
     ],
