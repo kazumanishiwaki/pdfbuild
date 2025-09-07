@@ -45,6 +45,11 @@ add_action('acf/init', function() {
     }
 });
 
+// 固定ページから本文エディタを外す
+add_action('init', function () {
+    remove_post_type_support('page', 'editor');
+});
+
 // Mixed Content問題を解決: HTTPSでの画像URL強制
 add_filter('wp_get_attachment_url', function($url) {
     return str_replace('http://', 'https://', $url);
