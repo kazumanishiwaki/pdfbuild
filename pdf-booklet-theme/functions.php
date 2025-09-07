@@ -50,6 +50,12 @@ add_action('init', function () {
     remove_post_type_support('page', 'editor');
 });
 
+// 固定ページからコメント・ディスカッション機能を削除
+add_action('init', function () {
+    remove_post_type_support('page', 'comments');
+    remove_post_type_support('page', 'trackbacks');
+});
+
 // Mixed Content問題を解決: HTTPSでの画像URL強制
 add_filter('wp_get_attachment_url', function($url) {
     return str_replace('http://', 'https://', $url);
@@ -432,155 +438,8 @@ add_filter('theme_page_templates', function($post_templates) {
     return $post_templates;
 });
 
-// ページ編集画面にPDFボックスを追加
-add_action('add_meta_boxes', function(){
-    global $post;
-    if(!$post) return;
-    
-    $template = get_page_template_slug($post->ID);
-    if(!is_pdf_booklet_template($template)) return;
-    
-    add_meta_box('pdf_box','PDF Booklet','render_pdf_box','page','side','high');
-});
 
-function render_pdf_box(){
-    global $post;
-    $slug = $post->post_name;
-    $u = wp_upload_dir();
-    
-    // アップロードディレクトリの作成を確認
-    $pdf_dir = $u['basedir'].'/pdf-booklet/';
-    if (!file_exists($pdf_dir)) {
-        wp_mkdir_p($pdf_dir);
-    }
-    
-    // 従来のスラッグベースのパス
-    $pdf_path = $pdf_dir.$slug.'.pdf';
-    $pdf_url = $u['baseurl'].'/pdf-booklet/'.$slug.'.pdf';
-    $pdf_exists = file_exists($pdf_path);
-    
-    // ID基準のPDF（新形式）
-    $new_pdf_path = $pdf_dir.'booklet-'.$post->ID.'.pdf';
-    $new_pdf_url = $u['baseurl'].'/pdf-booklet/booklet-'.$post->ID.'.pdf';
-    $new_pdf_exists = file_exists($new_pdf_path);
-    
-    // どちらかが存在すればOK
-    $any_pdf_exists = $pdf_exists || $new_pdf_exists;
-    
-    // 表示するPDFのURLとパス
-    $display_pdf_url = $pdf_exists ? $pdf_url : $new_pdf_url;
-    $display_pdf_path = $pdf_exists ? $pdf_path : $new_pdf_path;
-    
-    $nonce = wp_create_nonce('dispatch_pdf_nonce');
-    
-    // 追加ページIDの取得
-    $additional_ids = get_option('additional_page_ids', '');
-    
-    // GitHub設定の確認
-    $token = get_option('github_actions_token');
-    $repo  = get_option('github_repo');
-    $wf_id = get_option('github_workflow_id');
-    $github_config_ok = ($token && $repo && $wf_id);
-    ?>
-    <div id="pdf-ui">
-        <button type="button" class="button button-primary" id="pdf-gen-btn">PDF再生成</button>
-        <?php if($any_pdf_exists): ?>
-            <p style="margin-top:.5rem"><a href="<?php echo esc_url($display_pdf_url);?>" target="_blank">最新PDF</a></p>
-            <p style="margin-top:.5rem">最終更新: <?php echo date('Y-m-d H:i:s', filemtime($display_pdf_path)); ?></p>
-        <?php else: ?>
-            <p style="margin-top:.5rem">PDFはまだ生成されていないか、アップロードされていません。</p>
-            <p style="margin-top:.5rem">検索パス:</p>
-            <ul style="margin-top:.3rem">
-                <li><code><?php echo esc_html($pdf_path); ?></code></li>
-                <li><code><?php echo esc_html($new_pdf_path); ?></code></li>
-            </ul>
-        <?php endif;?>
-        
-        <?php if($additional_ids): ?>
-            <div style="margin-top:.5rem; padding:5px; background:#f0f0f0; border:1px solid #ddd;">
-                <p>追加ページID: <strong><?php echo esc_html($additional_ids); ?></strong></p>
-            </div>
-        <?php endif; ?>
-        
-        <p id="pdf-status" style="margin-top:.5rem"></p>
-        <?php if (!$github_config_ok): ?>
-            <p style="color:red;margin-top:.5rem">GitHub設定が不完全です。<a href="<?php echo admin_url('options-general.php?page=pdf-booklet-settings'); ?>">設定ページ</a>でtoken/repo/workflow_idを設定してください。</p>
-        <?php endif; ?>
-        
-        <div style="margin-top:1rem; border-top:1px solid #ddd; padding-top:.5rem;">
-            <a href="<?php echo admin_url('admin.php?page=pdf-booklet-manager'); ?>">PDFファイル管理画面を開く</a>
-        </div>
-    </div>
-    <script>
-    jQuery(function($){
-        $('#pdf-gen-btn').on('click',function(){
-            $('#pdf-status').text('GitHubへリクエスト送信中…');
-            $.post(ajaxurl,{
-                action:'dispatch_page_pdf',
-                _wpnonce:'<?php echo $nonce;?>',
-                post_id:<?php echo intval($post->ID); ?>
-            },function(res){
-                if(res.success){
-                    $('#pdf-status').html('<span style="color:green">✓ ワークフローを起動しました。数分後にリロードしてください</span>');
-                }else{
-                    $('#pdf-status').html('<span style="color:red">✗ エラー: ' + (res.data || '不明なエラー') + '</span>');
-                }
-            }).fail(function(xhr, status, error) {
-                $('#pdf-status').html('<span style="color:red">✗ Ajaxリクエスト失敗: ' + status + ' - ' + error + '</span>');
-            });
-        });
-    });
-    </script>
-<?php
-}
 
-add_action('wp_ajax_dispatch_page_pdf', function(){
-    check_ajax_referer('dispatch_pdf_nonce');
-    $pid = intval($_POST['post_id']??0);
-    if(!$pid) wp_send_json_error('no post');
-    $slug = get_post_field('post_name',$pid);
-    $title = get_the_title($pid);
-
-    // 追加のページIDを取得
-    $additional_ids = get_option('additional_page_ids', '');
-    
-    // 現在のページIDを含めたすべてのページID
-    $all_page_ids = $pid;
-    if (!empty($additional_ids)) {
-        $all_page_ids = $pid . ',' . $additional_ids;
-    }
-
-    $token = get_option('github_actions_token');
-    $repo  = get_option('github_repo');
-    $wf_id = get_option('github_workflow_id');
-    if(!$token||!$repo||!$wf_id) wp_send_json_error('GitHub設定未完: token='.($token?'有':'無').', repo='.($repo?'有':'無').', workflow_id='.($wf_id?'有':'無'));
-
-    // GitHub Actionsワークフローの起動パラメータ
-    $body = json_encode([
-        'ref' => 'main',
-        'inputs' => [
-            'wp_post_ids' => (string)$all_page_ids,
-            'target_slug' => (string)$pid
-        ]
-    ]);
-    
-    $resp = wp_remote_post(
-        "https://api.github.com/repos/{$repo}/actions/workflows/{$wf_id}/dispatches",
-        ['headers'=>['Authorization'=>'Bearer '.$token,'Accept'=>'application/vnd.github.v3+json','Content-Type'=>'application/json'],'body'=>$body]
-    );
-    
-    if(is_wp_error($resp)) {
-        wp_send_json_error('GitHub API呼び出し失敗: '.$resp->get_error_message());
-    }
-    
-    $status_code = wp_remote_retrieve_response_code($resp);
-    if ($status_code < 200 || $status_code >= 300) {
-        $body = wp_remote_retrieve_body($resp);
-        wp_send_json_error('GitHub API応答エラー: ステータスコード='.$status_code.', レスポンス='.$body);
-    }
-    
-    wp_send_json_success();
-});
 
 // ACFテンプレート使用時に本文欄を非表示にする
 add_action('admin_init', function() {
