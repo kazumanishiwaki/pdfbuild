@@ -3,6 +3,11 @@
  * functions.php – Page‑specific PDF generation & button
  */
 
+// 出力バッファリングを開始してヘッダーエラーを防ぐ
+if (!headers_sent()) {
+    ob_start();
+}
+
 // デバッグ用: functions.phpが読み込まれているかを確認
 error_log('PDF Booklet functions.php loaded at ' . date('Y-m-d H:i:s'));
 
@@ -1363,7 +1368,7 @@ add_action('save_post', function($post_id) {
     }
     
     // 権限チェック
-    if (!current_user_can('edit_page', $post_id)) {
+    if (!current_user_can('edit_pages') || !current_user_can('edit_post', $post_id)) {
         return;
     }
     

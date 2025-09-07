@@ -7,7 +7,7 @@
 // 管理画面メニューの制限
 add_action('admin_menu', function() {
     // 管理者（administrator）以外のユーザーに対してメニューを制限
-    if (!current_user_can('administrator')) {
+    if (!current_user_can('manage_options')) {
         
         // 投稿メニューを削除
         remove_menu_page('edit.php');
@@ -40,7 +40,7 @@ add_action('admin_menu', function() {
 
 // サブメニューの制限
 add_action('admin_menu', function() {
-    if (!current_user_can('administrator')) {
+    if (!current_user_can('manage_options')) {
         
         // 固定ページのサブメニューを制限
         // 「新規追加」は残して「固定ページ一覧」のみアクセス可能にする
@@ -69,7 +69,7 @@ add_action('admin_menu', function() {
     }
     
     // 管理者以外の場合、メディアライブラリのラベルを「画像」に変更
-    if (!current_user_can('administrator')) {
+    if (!current_user_can('manage_options')) {
         foreach ($menu as $key => $item) {
             if ($item[2] == 'upload.php') {
                 $menu[$key][0] = '画像';
@@ -83,7 +83,7 @@ add_action('admin_menu', function() {
 add_action('wp_before_admin_bar_render', function() {
     global $wp_admin_bar;
     
-    if (!current_user_can('administrator')) {
+    if (!current_user_can('manage_options')) {
         // 新規投稿リンクを削除
         $wp_admin_bar->remove_menu('new-post');
         
@@ -103,7 +103,7 @@ add_action('wp_before_admin_bar_render', function() {
 
 // ダッシュボードウィジェットの制限
 add_action('wp_dashboard_setup', function() {
-    if (!current_user_can('administrator')) {
+    if (!current_user_can('manage_options')) {
         
         // WordPressニュースウィジェットを削除
         remove_meta_box('dashboard_primary', 'dashboard', 'side');
@@ -128,7 +128,7 @@ add_action('wp_dashboard_setup', function() {
 
 // カスタムダッシュボードウィジェットを追加
 add_action('wp_dashboard_setup', function() {
-    if (!current_user_can('administrator')) {
+    if (!current_user_can('manage_options')) {
         
         // PDFブックレット専用ダッシュボードウィジェットを追加
         wp_add_dashboard_widget(
@@ -233,7 +233,7 @@ function pdf_usage_guide_widget() {
 
 // 管理画面のフッターテキストをカスタマイズ
 add_filter('admin_footer_text', function($text) {
-    if (!current_user_can('administrator')) {
+    if (!current_user_can('manage_options')) {
         return 'PDFブックレット管理システム';
     }
     return $text;
@@ -241,7 +241,7 @@ add_filter('admin_footer_text', function($text) {
 
 // 管理画面のタイトルをカスタマイズ
 add_filter('admin_title', function($admin_title, $title) {
-    if (!current_user_can('administrator')) {
+    if (!current_user_can('manage_options')) {
         return $title . ' - PDFブックレット管理';
     }
     return $admin_title;
@@ -249,7 +249,7 @@ add_filter('admin_title', function($admin_title, $title) {
 
 // 不要な管理画面通知を非表示
 add_action('admin_head', function() {
-    if (!current_user_can('administrator')) {
+    if (!current_user_can('manage_options')) {
         ?>
         <style>
         /* 更新通知を非表示 */
@@ -301,7 +301,7 @@ add_action('acf/render_field_settings/type=text', function($field) {
 
 // 権限チェック関数
 function is_pdf_editor() {
-    return current_user_can('edit_pages') && !current_user_can('administrator');
+    return current_user_can('edit_pages') && !current_user_can('manage_options');
 }
 
 // PDF編集者用の権限設定
@@ -324,7 +324,7 @@ add_action('init', function() {
 
 // ページ一覧画面のカスタマイズ
 add_filter('manage_pages_columns', function($columns) {
-    if (!current_user_can('administrator')) {
+    if (!current_user_can('manage_options')) {
         // PDF状態列を追加
         $columns['pdf_status'] = 'PDF状態';
     }
