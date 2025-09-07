@@ -1,0 +1,66 @@
+{
+    "key": "group_template_image_caption_3",
+    "title": "⑥ （画像＋キャプション）×３",
+    "fields": [
+        {
+            "key": "field_image_caption_3_image1",
+            "label": "画像1",
+            "name": "image_1",
+            "type": "image",
+            "required": 1,
+            "return_format": "array",
+            "preview_size": "medium"
+        },
+        {
+            "key": "field_image_caption_3_caption1",
+            "label": "キャプション1",
+            "name": "caption_1",
+            "type": "textarea",
+            "rows": 2
+        },
+        {
+            "key": "field_image_caption_3_image2",
+            "label": "画像2",
+            "name": "image_2",
+            "type": "image",
+            "required": 1,
+            "return_format": "array",
+            "preview_size": "medium"
+        },
+        {
+            "key": "field_image_caption_3_caption2",
+            "label": "キャプション2",
+            "name": "caption_2",
+            "type": "textarea",
+            "rows": 2
+        },
+        {
+            "key": "field_image_caption_3_image3",
+            "label": "画像3",
+            "name": "image_3",
+            "type": "image",
+            "required": 1,
+            "return_format": "array",
+            "preview_size": "medium"
+        },
+        {
+            "key": "field_image_caption_3_caption3",
+            "label": "キャプション3",
+            "name": "caption_3",
+            "type": "textarea",
+            "rows": 2
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "page_template",
+                "operator": "==",
+                "value": "template-image-caption-3.php"
+            }
+        ]
+    ],
+    "hide_on_screen": ["the_content"],
+    "active": true
+}
+

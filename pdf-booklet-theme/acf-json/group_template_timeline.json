@@ -1,0 +1,127 @@
+{
+    "key": "group_template_timeline",
+    "title": "⑧ 年表（年、月、出来事）×100",
+    "fields": [
+        {
+            "key": "field_timeline_title",
+            "label": "年表タイトル",
+            "name": "timeline_title",
+            "type": "text",
+            "instructions": "年表のタイトルを入力してください",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "年表タイトルを入力",
+            "prepend": "",
+            "append": "",
+            "maxlength": ""
+        },
+        {
+            "key": "field_timeline_items",
+            "label": "年表項目",
+            "name": "timeline_items",
+            "type": "repeater",
+            "instructions": "年表の項目を追加してください（最大100項目）",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "collapsed": "",
+            "min": 1,
+            "max": 100,
+            "layout": "table",
+            "button_label": "項目を追加",
+            "sub_fields": [
+                {
+                    "key": "field_timeline_year",
+                    "label": "年",
+                    "name": "year",
+                    "type": "number",
+                    "instructions": "",
+                    "required": 1,
+                    "conditional_logic": 0,
+                    "wrapper": {
+                        "width": "20",
+                        "class": "",
+                        "id": ""
+                    },
+                    "default_value": "",
+                    "placeholder": "2024",
+                    "prepend": "",
+                    "append": "",
+                    "min": 1,
+                    "max": 9999,
+                    "step": ""
+                },
+                {
+                    "key": "field_timeline_month",
+                    "label": "月",
+                    "name": "month",
+                    "type": "number",
+                    "instructions": "",
+                    "required": 0,
+                    "conditional_logic": 0,
+                    "wrapper": {
+                        "width": "15",
+                        "class": "",
+                        "id": ""
+                    },
+                    "default_value": "",
+                    "placeholder": "12",
+                    "prepend": "",
+                    "append": "",
+                    "min": 1,
+                    "max": 12,
+                    "step": ""
+                },
+                {
+                    "key": "field_timeline_event",
+                    "label": "出来事",
+                    "name": "event",
+                    "type": "textarea",
+                    "instructions": "",
+                    "required": 1,
+                    "conditional_logic": 0,
+                    "wrapper": {
+                        "width": "65",
+                        "class": "",
+                        "id": ""
+                    },
+                    "default_value": "",
+                    "placeholder": "出来事を入力",
+                    "maxlength": "",
+                    "rows": 2,
+                    "new_lines": "br"
+                }
+            ]
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "page_template",
+                "operator": "==",
+                "value": "template-timeline.php"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": [
+        "the_content"
+    ],
+    "active": true,
+    "description": ""
+}
+

@@ -1,0 +1,64 @@
+{
+    "key": "group_template_heading_text",
+    "title": "① 見出し＋本文",
+    "fields": [
+        {
+            "key": "field_heading_text_heading",
+            "label": "見出し",
+            "name": "heading",
+            "type": "text",
+            "instructions": "PDFに表示される見出しを入力してください",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "見出しを入力",
+            "prepend": "",
+            "append": "",
+            "maxlength": ""
+        },
+        {
+            "key": "field_heading_text_content",
+            "label": "本文",
+            "name": "content",
+            "type": "textarea",
+            "instructions": "PDFに表示される本文を入力してください",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "本文を入力",
+            "maxlength": "",
+            "rows": 6,
+            "new_lines": "br"
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "page_template",
+                "operator": "==",
+                "value": "template-heading-text.php"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": [
+        "the_content"
+    ],
+    "active": true,
+    "description": ""
+}
+

@@ -1,0 +1,69 @@
+{
+    "key": "group_template_image_caption_1",
+    "title": "④ 画像＋キャプション",
+    "fields": [
+        {
+            "key": "field_image_caption_1_image",
+            "label": "画像",
+            "name": "image",
+            "type": "image",
+            "instructions": "PDFに表示する画像を選択してください",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "return_format": "array",
+            "preview_size": "medium",
+            "library": "all",
+            "min_width": "",
+            "min_height": "",
+            "min_size": "",
+            "max_width": "",
+            "max_height": "",
+            "max_size": "",
+            "mime_types": "jpg,jpeg,png,gif,webp"
+        },
+        {
+            "key": "field_image_caption_1_caption",
+            "label": "キャプション",
+            "name": "caption",
+            "type": "textarea",
+            "instructions": "画像の説明文を入力してください",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "キャプションを入力",
+            "maxlength": "",
+            "rows": 3,
+            "new_lines": "br"
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "page_template",
+                "operator": "==",
+                "value": "template-image-caption-1.php"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": [
+        "the_content"
+    ],
+    "active": true,
+    "description": ""
+}
+
