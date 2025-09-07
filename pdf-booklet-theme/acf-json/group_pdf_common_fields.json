@@ -1,0 +1,112 @@
+{
+    "key": "group_pdf_common_fields",
+    "title": "PDFブックレット共通フィールド",
+    "fields": [
+        {
+            "key": "field_pdf_author",
+            "label": "執筆者",
+            "name": "pdf_author",
+            "type": "text",
+            "instructions": "このページの執筆者名を入力してください（PDFには出力されません）",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "執筆者名を入力",
+            "prepend": "",
+            "append": "",
+            "maxlength": ""
+        },
+        {
+            "key": "field_pdf_page_number",
+            "label": "該当ページ数",
+            "name": "pdf_page_number",
+            "type": "number",
+            "instructions": "このページに該当するページ数を入力してください（PDFには出力されません）",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "1",
+            "prepend": "",
+            "append": "ページ",
+            "min": 1,
+            "max": 9999,
+            "step": ""
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "page_template",
+                "operator": "==",
+                "value": "template-heading-text.php"
+            }
+        ],
+        [
+            {
+                "param": "page_template",
+                "operator": "==",
+                "value": "template-main-heading-2.php"
+            }
+        ],
+        [
+            {
+                "param": "page_template",
+                "operator": "==",
+                "value": "template-main-heading-3.php"
+            }
+        ],
+        [
+            {
+                "param": "page_template",
+                "operator": "==",
+                "value": "template-image-caption-1.php"
+            }
+        ],
+        [
+            {
+                "param": "page_template",
+                "operator": "==",
+                "value": "template-image-caption-2.php"
+            }
+        ],
+        [
+            {
+                "param": "page_template",
+                "operator": "==",
+                "value": "template-image-caption-3.php"
+            }
+        ],
+        [
+            {
+                "param": "page_template",
+                "operator": "==",
+                "value": "template-image-caption-4.php"
+            }
+        ],
+        [
+            {
+                "param": "page_template",
+                "operator": "==",
+                "value": "template-timeline.php"
+            }
+        ]
+    ],
+    "menu_order": 100,
+    "position": "side",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": [],
+    "active": true,
+    "description": "全てのPDFブックレットテンプレートで使用される共通フィールド"
+}

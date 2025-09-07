@@ -1456,4 +1456,136 @@ function trigger_github_actions_for_page($page_id) {
     }
 }
 
+// ========================================
+// 固定ページ一覧のカスタマイズ
+// ========================================
+
+// 固定ページ一覧に「執筆者」と「該当ページ数」カラムを追加
+add_filter('manage_pages_columns', function($columns) {
+    // 「日付」カラムの前に新しいカラムを挿入
+    $new_columns = [];
+    foreach ($columns as $key => $value) {
+        if ($key === 'date') {
+            $new_columns['pdf_author'] = '執筆者';
+            $new_columns['pdf_page_number'] = 'ページ数';
+        }
+        $new_columns[$key] = $value;
+    }
+    return $new_columns;
+});
+
+// カラムの内容を表示
+add_action('manage_pages_custom_column', function($column, $post_id) {
+    switch ($column) {
+        case 'pdf_author':
+            $author = get_field('pdf_author', $post_id);
+            echo $author ? esc_html($author) : '—';
+            break;
+            
+        case 'pdf_page_number':
+            $page_number = get_field('pdf_page_number', $post_id);
+            if ($page_number) {
+                echo '<span style="font-weight: bold; color: #0073aa;">' . esc_html($page_number) . '</span>';
+            } else {
+                echo '—';
+            }
+            break;
+    }
+}, 10, 2);
+
+// カラムをソート可能にする
+add_filter('manage_edit-page_sortable_columns', function($columns) {
+    $columns['pdf_author'] = 'pdf_author';
+    $columns['pdf_page_number'] = 'pdf_page_number';
+    return $columns;
+});
+
+// ソート処理
+add_action('pre_get_posts', function($query) {
+    if (!is_admin() || !$query->is_main_query()) {
+        return;
+    }
+    
+    $orderby = $query->get('orderby');
+    
+    if ($orderby === 'pdf_author') {
+        $query->set('meta_key', 'pdf_author');
+        $query->set('orderby', 'meta_value');
+    } elseif ($orderby === 'pdf_page_number') {
+        $query->set('meta_key', 'pdf_page_number');
+        $query->set('orderby', 'meta_value_num');
+    }
+});
+
+// デフォルトソートをページ数の昇順に設定
+add_action('pre_get_posts', function($query) {
+    if (!is_admin() || !$query->is_main_query()) {
+        return;
+    }
+    
+    // 固定ページ一覧画面でのみ適用
+    if ($query->get('post_type') === 'page' && !$query->get('orderby')) {
+        $query->set('meta_key', 'pdf_page_number');
+        $query->set('orderby', 'meta_value_num');
+        $query->set('order', 'ASC');
+        $query->set('meta_query', [
+            'relation' => 'OR',
+            [
+                'key' => 'pdf_page_number',
+                'compare' => 'EXISTS'
+            ],
+            [
+                'key' => 'pdf_page_number',
+                'compare' => 'NOT EXISTS'
+            ]
+        ]);
+    }
+});
+
+// 固定ページ一覧にPDFステータス表示を追加
+add_filter('manage_pages_columns', function($columns) {
+    $new_columns = [];
+    foreach ($columns as $key => $value) {
+        $new_columns[$key] = $value;
+        if ($key === 'title') {
+            $new_columns['pdf_status'] = 'PDF状態';
+        }
+    }
+    return $new_columns;
+});
+
+add_action('manage_pages_custom_column', function($column, $post_id) {
+    if ($column === 'pdf_status') {
+        $template = get_page_template_slug($post_id);
+        
+        // PDFブックレットテンプレートかチェック
+        $pdf_templates = [
+            'template-heading-text.php',
+            'template-main-heading-2.php',
+            'template-main-heading-3.php',
+            'template-image-caption-1.php',
+            'template-image-caption-2.php',
+            'template-image-caption-3.php',
+            'template-image-caption-4.php',
+            'template-timeline.php'
+        ];
+        
+        if (in_array($template, $pdf_templates)) {
+            // PDF生成状況をチェック（簡易版）
+            $pdf_url = 'https://kazumanishiwaki.net/ks/wp-content/uploads/pdf-booklet/booklet-' . $post_id . '.pdf';
+            $response = wp_remote_head($pdf_url, ['timeout' => 5]);
+            
+            if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
+                $modified = get_the_modified_time('Y-m-d H:i:s', $post_id);
+                echo '<span style="color: #46b450; font-weight: bold;">✓ PDF生成済</span><br>';
+                echo '<small style="color: #666;">更新: ' . esc_html($modified) . '</small>';
+            } else {
+                echo '<span style="color: #dc3232;">⚠ PDF未生成</span>';
+            }
+        } else {
+            echo '<span style="color: #999;">—</span>';
+        }
+    }
+}, 10, 2);
+
 ?>
