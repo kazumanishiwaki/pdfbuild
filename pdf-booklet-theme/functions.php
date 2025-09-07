@@ -1460,13 +1460,12 @@ function trigger_github_actions_for_page($page_id) {
 // 固定ページ一覧のカスタマイズ
 // ========================================
 
-// 固定ページ一覧に「執筆者」と「該当ページ数」カラムを追加
+// 固定ページ一覧に「該当ページ数」カラムを追加
 add_filter('manage_pages_columns', function($columns) {
     // 「日付」カラムの前に新しいカラムを挿入
     $new_columns = [];
     foreach ($columns as $key => $value) {
         if ($key === 'date') {
-            $new_columns['pdf_author'] = '執筆者';
             $new_columns['pdf_page_number'] = 'ページ数';
         }
         $new_columns[$key] = $value;
@@ -1476,26 +1475,18 @@ add_filter('manage_pages_columns', function($columns) {
 
 // カラムの内容を表示
 add_action('manage_pages_custom_column', function($column, $post_id) {
-    switch ($column) {
-        case 'pdf_author':
-            $author = get_field('pdf_author', $post_id);
-            echo $author ? esc_html($author) : '—';
-            break;
-            
-        case 'pdf_page_number':
-            $page_number = get_field('pdf_page_number', $post_id);
-            if ($page_number) {
-                echo '<span style="font-weight: bold; color: #0073aa;">' . esc_html($page_number) . '</span>';
-            } else {
-                echo '—';
-            }
-            break;
+    if ($column === 'pdf_page_number') {
+        $page_number = get_field('pdf_page_number', $post_id);
+        if ($page_number) {
+            echo '<span style="font-weight: bold; color: #0073aa;">' . esc_html($page_number) . 'ページ</span>';
+        } else {
+            echo '—';
+        }
     }
 }, 10, 2);
 
 // カラムをソート可能にする
 add_filter('manage_edit-page_sortable_columns', function($columns) {
-    $columns['pdf_author'] = 'pdf_author';
     $columns['pdf_page_number'] = 'pdf_page_number';
     return $columns;
 });
@@ -1508,10 +1499,7 @@ add_action('pre_get_posts', function($query) {
     
     $orderby = $query->get('orderby');
     
-    if ($orderby === 'pdf_author') {
-        $query->set('meta_key', 'pdf_author');
-        $query->set('orderby', 'meta_value');
-    } elseif ($orderby === 'pdf_page_number') {
+    if ($orderby === 'pdf_page_number') {
         $query->set('meta_key', 'pdf_page_number');
         $query->set('orderby', 'meta_value_num');
     }

@@ -3,25 +3,6 @@
     "title": "PDFブックレット共通フィールド",
     "fields": [
         {
-            "key": "field_pdf_author",
-            "label": "執筆者",
-            "name": "pdf_author",
-            "type": "text",
-            "instructions": "このページの執筆者名を入力してください（PDFには出力されません）",
-            "required": 0,
-            "conditional_logic": 0,
-            "wrapper": {
-                "width": "50",
-                "class": "",
-                "id": ""
-            },
-            "default_value": "",
-            "placeholder": "執筆者名を入力",
-            "prepend": "",
-            "append": "",
-            "maxlength": ""
-        },
-        {
             "key": "field_pdf_page_number",
             "label": "該当ページ数",
             "name": "pdf_page_number",
@@ -30,7 +11,7 @@
             "required": 0,
             "conditional_logic": 0,
             "wrapper": {
-                "width": "50",
+                "width": "",
                 "class": "",
                 "id": ""
             },

@@ -69,7 +69,6 @@ function dummy() {
     caption2: '写真2のキャプション（ダミー）',
     modified: new Date().toISOString(),
     // 共通フィールド
-    pdf_author: 'ダミー執筆者',
     pdf_page_number: 1
   });
 }
@@ -411,7 +410,6 @@ async function main() {
         title: acf.title || page.title?.rendered || slug,
         modified: page.modified || page.date || new Date().toISOString(),
         // 共通フィールド（PDFには出力しない）
-        pdf_author: acf.pdf_author || '',
         pdf_page_number: acf.pdf_page_number || null
       };
 
