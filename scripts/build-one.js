@@ -546,6 +546,9 @@ async function main() {
     const dir = path.dirname(json);
     const allFiles = fs.readdirSync(dir).filter(f => f.startsWith('content-') && f.endsWith('.json'));
     
+    console.log(`🔍 Searching for adjacent pages in directory: ${dir}`);
+    console.log(`📁 Available content files: ${allFiles.length} files`);
+    
     let leftPageFile = null, rightPageFile = null;
     
     for (const file of allFiles) {
@@ -554,17 +557,22 @@ async function main() {
         const fileData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
         const filePageNumber = parseInt(fileData.pdf_page_number || fileData.id);
         
+        console.log(`   📄 ${file}: page number ${filePageNumber} (title: ${fileData.title || 'Untitled'})`);
+        
         if (filePageNumber === leftPageNumber) {
           leftPageFile = filePath;
-          console.log(`📄 Found left page file: ${file} (page number: ${filePageNumber})`);
+          console.log(`   ✅ → Selected as LEFT page (${filePageNumber})`);
         } else if (filePageNumber === rightPageNumber) {
           rightPageFile = filePath;
-          console.log(`📄 Found right page file: ${file} (page number: ${filePageNumber})`);
+          console.log(`   ✅ → Selected as RIGHT page (${filePageNumber})`);
         }
       } catch (e) {
-        console.warn(`⚠️ Could not read file ${file}: ${e.message}`);
+        console.warn(`   ⚠️ Could not read file ${file}: ${e.message}`);
       }
     }
+    
+    console.log(`🎯 Search results: Left page file: ${leftPageFile ? 'found' : 'NOT FOUND'}, Right page file: ${rightPageFile ? 'found' : 'NOT FOUND'}`);
+    console.log('');
     
     // 左ページのデータを読み込み
     if (leftPageFile && leftPageNumber !== currentPageNumber) {
@@ -631,10 +639,38 @@ async function main() {
   
   // デバッグ用：見開きモードでの左右ページデータをログ出力
   if (spread) {
-    console.log('🔍 Spread mode debug:');
-    console.log(`  Current page: ${data.title || 'Untitled'} (ID: ${data.id}, pdf_page_number: ${data.pdf_page_number})`);
-    console.log(`  Left page: ${leftPageData ? (leftPageData.title || 'Untitled') + ` (ID: ${leftPageData.id}, pdf_page_number: ${leftPageData.pdf_page_number})` : 'null'}`);
-    console.log(`  Right page: ${rightPageData ? (rightPageData.title || 'Untitled') + ` (ID: ${rightPageData.id}, pdf_page_number: ${rightPageData.pdf_page_number})` : 'null'}`);
+    console.log('');
+    console.log('📖 ========== SPREAD PDF LAYOUT DEBUG ==========');
+    console.log(`🎯 Current page: ${data.title || 'Untitled'}`);
+    console.log(`   - ID: ${data.id}`);
+    console.log(`   - PDF Page Number: ${data.pdf_page_number || 'not set'}`);
+    console.log('');
+    console.log('📄 Left page (偶数ページ):');
+    if (leftPageData) {
+      console.log(`   - Title: ${leftPageData.title || 'Untitled'}`);
+      console.log(`   - ID: ${leftPageData.id}`);
+      console.log(`   - PDF Page Number: ${leftPageData.pdf_page_number || 'not set'}`);
+      console.log(`   - Template: ${leftPageData.template || 'not set'}`);
+    } else {
+      console.log('   - ❌ No left page data available');
+    }
+    console.log('');
+    console.log('📄 Right page (奇数ページ):');
+    if (rightPageData) {
+      console.log(`   - Title: ${rightPageData.title || 'Untitled'}`);
+      console.log(`   - ID: ${rightPageData.id}`);
+      console.log(`   - PDF Page Number: ${rightPageData.pdf_page_number || 'not set'}`);
+      console.log(`   - Template: ${rightPageData.template || 'not set'}`);
+    } else {
+      console.log('   - ❌ No right page data available');
+    }
+    console.log('');
+    console.log('📋 Spread layout summary:');
+    const leftPageNum = leftPageData ? (leftPageData.pdf_page_number || leftPageData.id) : 'N/A';
+    const rightPageNum = rightPageData ? (rightPageData.pdf_page_number || rightPageData.id) : 'N/A';
+    console.log(`   - Final layout: ${leftPageNum} ⇔ ${rightPageNum}`);
+    console.log('================================================');
+    console.log('');
   }
   
   const html = renderHTML(data, spread, nextPageData, spread ? leftPageData : null, spread ? rightPageData : null);

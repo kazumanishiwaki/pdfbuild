@@ -253,7 +253,36 @@ jobs:
         run: |
           echo "📄 Generated PDFs in: $WORK_DIR"
           cd "$WORK_DIR"
-          ls -la out/booklet-*.pdf || echo "❌ No PDFs generated"
+          
+          if ls out/booklet-*.pdf 1> /dev/null 2>&1; then
+            echo "✅ PDFs generated successfully:"
+            for pdf in out/booklet-*.pdf; do
+              if [ -f "$pdf" ]; then
+                filename=$(basename "$pdf")
+                size=$(du -h "$pdf" | cut -f1)
+                echo "  📄 $filename ($size)"
+                
+                # 見開きPDFかどうかを判定
+                if [[ "$filename" == *"-spread.pdf" ]]; then
+                  echo "    📖 → Spread PDF (見開きレイアウト)"
+                else
+                  echo "    📄 → Normal PDF (通常レイアウト)"
+                fi
+              fi
+            done
+            
+            # 見開きモードの場合、追加情報を表示
+            if [ "${SPREAD_MODE:-false}" = "true" ]; then
+              echo ""
+              echo "📖 Spread mode summary:"
+              echo "  - Target page ID: ${WP_PAGE_IDS:-unknown}"
+              echo "  - Output suffix: ${OUTPUT_SUFFIX:--spread}"
+              echo "  - Layout: A3 landscape with left/right pages"
+            fi
+          else
+            echo "❌ No PDFs generated"
+            exit 1
+          fi
 
       - name: Normalize filename to page ID (optional)
         if: ${{ env.TARGET_SLUG != '' }}
