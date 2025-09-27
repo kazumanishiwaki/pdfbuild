@@ -101,14 +101,26 @@ add_action('admin_notices', function() {
 function pdf_booklet_get_supported_templates() {
     // PDFブックレット対応テンプレートをハードコーディングで定義
     $templates = [
-        'template-heading-text.php'      => '① 見出し＋本文',
-        'template-main-heading-2.php'    => '② 大見出し＋（見出し＋本文）×２',
-        'template-main-heading-3.php'    => '③ 大見出し＋（見出し＋本文）×３',
-        'template-image-caption-1.php'   => '④ 画像＋キャプション',
-        'template-image-caption-2.php'   => '⑤ （画像＋キャプション）×２',
-        'template-image-caption-3.php'   => '⑥ （画像＋キャプション）×３',
-        'template-image-caption-4.php'   => '⑦ （画像＋キャプション）×４',
-        'template-timeline.php'          => '⑧ 年表（年、月、出来事）×100'
+        // 既存テンプレート
+        'template-heading-text.php'                          => '① 見出し＋本文',
+        'template-main-heading-2.php'                        => '② 大見出し＋（見出し＋本文）×２',
+        'template-main-heading-3.php'                        => '③ 大見出し＋（見出し＋本文）×３',
+        'template-image-caption-1.php'                       => '④ 画像＋キャプション',
+        'template-image-caption-2.php'                       => '⑤ （画像＋キャプション）×２',
+        'template-image-caption-3.php'                       => '⑥ （画像＋キャプション）×３',
+        'template-image-caption-4.php'                       => '⑦ （画像＋キャプション）×４',
+        'template-timeline.php'                              => '⑧ 年表（年、月、出来事）×100',
+        
+        // 新規追加テンプレート
+        'template-heading-two-columns-text.php'              => '⑨ 見出し＋左右カラム本文',
+        'template-heading-text-image-1.php'                  => '⑩ 見出し＋左本文＋右画像キャプション',
+        'template-heading-text-image-2.php'                  => '⑪ 見出し＋左本文＋右画像キャプション×2',
+        'template-heading-text-image-3-large-medium.php'     => '⑫ 見出し＋左本文＋右画像キャプション×3（大1中2）',
+        'template-heading-text-image-4-large-small.php'      => '⑬ 見出し＋左本文＋右画像キャプション×4（大1小3）',
+        'template-heading-text-image-4-medium.php'           => '⑭ 見出し＋左本文＋右画像キャプション×4（中4）',
+        'template-heading-text-image-5-medium-small.php'     => '⑮ 見出し＋左本文＋右画像キャプション×5（中2小3）',
+        'template-image-caption-only.php'                    => '⑯ 画像キャプションのみ',
+        'template-image-caption-3-medium-small.php'          => '⑰ 画像キャプション×3（中1小2）'
     ];
     
     return $templates;
@@ -602,7 +614,16 @@ add_action('admin_head-post.php', function() {
                         'template-image-caption-2.php': '⑤ （画像＋キャプション）×２',
                         'template-image-caption-3.php': '⑥ （画像＋キャプション）×３',
                         'template-image-caption-4.php': '⑦ （画像＋キャプション）×４',
-                        'template-timeline.php': '⑧ 年表（年、月、出来事）×100'
+                        'template-timeline.php': '⑧ 年表（年、月、出来事）×100',
+                        'template-heading-two-columns-text.php': '⑨ 見出し＋左右カラム本文',
+                        'template-heading-text-image-1.php': '⑩ 見出し＋左本文＋右画像キャプション',
+                        'template-heading-text-image-2.php': '⑪ 見出し＋左本文＋右画像キャプション×2',
+                        'template-heading-text-image-3-large-medium.php': '⑫ 見出し＋左本文＋右画像キャプション×3（大1中2）',
+                        'template-heading-text-image-4-large-small.php': '⑬ 見出し＋左本文＋右画像キャプション×4（大1小3）',
+                        'template-heading-text-image-4-medium.php': '⑭ 見出し＋左本文＋右画像キャプション×4（中4）',
+                        'template-heading-text-image-5-medium-small.php': '⑮ 見出し＋左本文＋右画像キャプション×5（中2小3）',
+                        'template-image-caption-only.php': '⑯ 画像キャプションのみ',
+                        'template-image-caption-3-medium-small.php': '⑰ 画像キャプション×3（中1小2）'
                     };
                     
                     var optionsHtml = '';
@@ -684,7 +705,16 @@ add_action('admin_head-post.php', function() {
                     'template-image-caption-2.php',
                     'template-image-caption-3.php',
                     'template-image-caption-4.php',
-                    'template-timeline.php'
+                    'template-timeline.php',
+                    'template-heading-two-columns-text.php',
+                    'template-heading-text-image-1.php',
+                    'template-heading-text-image-2.php',
+                    'template-heading-text-image-3-large-medium.php',
+                    'template-heading-text-image-4-large-small.php',
+                    'template-heading-text-image-4-medium.php',
+                    'template-heading-text-image-5-medium-small.php',
+                    'template-image-caption-only.php',
+                    'template-image-caption-3-medium-small.php'
                 ];
                 
                 var isPdfBookletTemplate = pdfTemplates.indexOf(template) !== -1 ||
@@ -766,7 +796,16 @@ add_action('admin_head-post.php', function() {
                     'template-image-caption-2.php',
                     'template-image-caption-3.php',
                     'template-image-caption-4.php',
-                    'template-timeline.php'
+                    'template-timeline.php',
+                    'template-heading-two-columns-text.php',
+                    'template-heading-text-image-1.php',
+                    'template-heading-text-image-2.php',
+                    'template-heading-text-image-3-large-medium.php',
+                    'template-heading-text-image-4-large-small.php',
+                    'template-heading-text-image-4-medium.php',
+                    'template-heading-text-image-5-medium-small.php',
+                    'template-image-caption-only.php',
+                    'template-image-caption-3-medium-small.php'
                 ];
                 
                 var isPdfBookletTemplate = pdfTemplates.indexOf(template) !== -1;
@@ -1301,16 +1340,7 @@ add_action('manage_pages_custom_column', function($column, $post_id) {
         $template = get_page_template_slug($post_id);
         
         // PDFブックレットテンプレートかチェック
-        $pdf_templates = [
-            'template-heading-text.php',
-            'template-main-heading-2.php',
-            'template-main-heading-3.php',
-            'template-image-caption-1.php',
-            'template-image-caption-2.php',
-            'template-image-caption-3.php',
-            'template-image-caption-4.php',
-            'template-timeline.php'
-        ];
+        $pdf_templates = array_keys(pdf_booklet_get_supported_templates());
         
         if (in_array($template, $pdf_templates)) {
             // PDF生成状況をチェック（簡易版）
