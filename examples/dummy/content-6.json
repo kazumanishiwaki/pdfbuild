@@ -1,0 +1,9 @@
+{
+  "id": 6,
+  "slug": "page6",
+  "template": "heading-text",
+  "title": "ページ6（単独ページ）",
+  "heading": "これは6ページ目です",
+  "content": "隣接ページ（7ページ）が存在しない場合のテストです。",
+  "pdf_page_number": 6
+}

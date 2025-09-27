@@ -606,6 +606,16 @@ async function main() {
           console.log(`  - ${file}: could not read`);
         }
       });
+      
+      // 隣接ページが見つからない場合は、現在のページを両側に表示
+      if (!leftPageData) {
+        leftPageData = data;
+        console.log(`📄 Using current page as left page fallback`);
+      }
+      if (!rightPageData) {
+        rightPageData = data;
+        console.log(`📄 Using current page as right page fallback`);
+      }
     }
   }
   

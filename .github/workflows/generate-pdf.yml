@@ -164,32 +164,12 @@ jobs:
           
           test -f scripts/fetch-acf.js
           
-          # 見開きモードの場合、隣接ページも取得
+          # 見開きモードでも基本的には指定されたページのみ取得
           FETCH_PAGE_IDS="$WP_PAGE_IDS"
           if [ "${SPREAD_MODE:-false}" = "true" ]; then
-            echo "📖 Spread mode: expanding page IDs to include adjacent pages"
-            EXPANDED_IDS=""
-            for page_id in $(echo "$WP_PAGE_IDS" | tr ',' ' '); do
-              # 現在のページ
-              EXPANDED_IDS="$EXPANDED_IDS,$page_id"
-              
-              # 偶数ページの場合：次のページ（奇数）も追加
-              if [ $((page_id % 2)) -eq 0 ]; then
-                next_page=$((page_id + 1))
-                EXPANDED_IDS="$EXPANDED_IDS,$next_page"
-                echo "📄 Even page $page_id: adding next page $next_page"
-              else
-                # 奇数ページの場合：前のページ（偶数）も追加
-                prev_page=$((page_id - 1))
-                if [ $prev_page -gt 0 ]; then
-                  EXPANDED_IDS="$EXPANDED_IDS,$prev_page"
-                  echo "📄 Odd page $page_id: adding previous page $prev_page"
-                fi
-              fi
-            done
-            # 先頭のカンマを削除し、重複を除去
-            FETCH_PAGE_IDS=$(echo "$EXPANDED_IDS" | sed 's/^,//' | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/,$//')
-            echo "📋 Expanded page IDs: $FETCH_PAGE_IDS"
+            echo "📖 Spread mode: fetching only specified pages to prevent loops"
+            echo "📝 Adjacent pages will be handled by build-one.js if available"
+            echo "📋 Page IDs to fetch: $FETCH_PAGE_IDS"
           fi
           
           # fetch-acf.jsの実行（詳細ログ付き）

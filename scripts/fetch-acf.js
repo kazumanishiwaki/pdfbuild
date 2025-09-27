@@ -489,86 +489,12 @@ async function main() {
   // 見開きモードの場合、隣接ページも取得
   const SPREAD_MODE = /^(1|true|yes)$/i.test(process.env.SPREAD_MODE || '');
   if (SPREAD_MODE) {
-    console.log('\n📖 Spread mode: checking for adjacent pages based on pdf_page_number');
+    console.log('\n📖 Spread mode: disabled additional page fetching to prevent loops');
+    console.log('📝 Adjacent pages will be handled by build-one.js if available in the same directory');
     
-    const additionalIds = new Set();
-    
-    // 既に取得したページの pdf_page_number を確認
-    for (const id of ids) {
-      try {
-        const filename = String(id);
-        const contentFile = `content-${filename}.json`;
-        if (fs.existsSync(contentFile)) {
-          const content = JSON.parse(fs.readFileSync(contentFile, 'utf-8'));
-          const pageNumber = parseInt(content.pdf_page_number || content.id);
-          
-          let adjacentPageNumber;
-          if (pageNumber % 2 === 0) {
-            // 偶数ページ：次のページ（奇数）も必要
-            adjacentPageNumber = pageNumber + 1;
-          } else {
-            // 奇数ページ：前のページ（偶数）も必要
-            adjacentPageNumber = pageNumber - 1;
-          }
-          
-          console.log(`📄 Page ${id} has pdf_page_number ${pageNumber}, need adjacent page ${adjacentPageNumber}`);
-          
-          // 隣接ページのIDを探す（WordPressから検索）
-          // 簡単な方法として、連続したIDを試す
-          for (let testId = Math.max(1, id - 10); testId <= id + 10; testId++) {
-            if (testId !== id && !ids.includes(String(testId))) {
-              additionalIds.add(String(testId));
-            }
-          }
-        }
-      } catch (e) {
-        console.warn(`⚠️ Could not check pdf_page_number for page ${id}: ${e.message}`);
-      }
-    }
-    
-    // 追加のページを取得
-    if (additionalIds.size > 0) {
-      console.log(`🔍 Attempting to fetch additional pages: ${Array.from(additionalIds).join(', ')}`);
-      
-      for (const additionalId of additionalIds) {
-        try {
-          const authHeaders = buildAuthHeadersFromEnv();
-          const headers = { 'Accept': 'application/json', ...authHeaders };
-          
-          console.log(`\n🔍 Processing additional page ID: ${additionalId}`);
-          const page = await fetchPage(additionalId, WP_URL, headers);
-          const slug = page.slug || String(additionalId);
-          
-          // ファイル名はID名を使用
-          const filename = String(additionalId);
-          idSlug[String(additionalId)] = slug;
-          idSlug[slug] = Number(additionalId);
-
-          // ACF取得
-          let acf = page.acf || {};
-          if (!acf || Object.keys(acf).length === 0) {
-            try {
-              const acfResp = await fetchACF(additionalId, WP_URL, headers);
-              if (acfResp && acfResp.acf) {
-                acf = acfResp.acf;
-              }
-            } catch (e) {
-              console.warn(`⚠️ ACF v3 failed for additional page ${additionalId}: ${e.message}`);
-            }
-          }
-
-          const templateSlug = page.template || 'default';
-          const templateType = detectTemplateType(templateSlug);
-          const content = processTemplateFields(acf, templateType, page);
-
-          writeJSON(`content-${filename}.json`, content);
-          console.log(`✅ Additional page fetched: ${slug} (ID: ${additionalId})`);
-          wroteAny = true;
-        } catch (e) {
-          console.warn(`⚠️ Could not fetch additional page ${additionalId}: ${e.message}`);
-        }
-      }
-    }
+    // 見開きモードでの追加取得は無効化
+    // build-one.jsが同じディレクトリ内の既存ファイルから隣接ページを探すため、
+    // ここでの追加取得は不要で、エラーループの原因となる
   }
   
   writeJSON('id-slug-map.json', idSlug);
