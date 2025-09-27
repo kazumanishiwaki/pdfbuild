@@ -515,6 +515,9 @@ async function main() {
   
   // 見開きモードの場合、次のページのデータも読み込む
   let nextPageData = null;
+  let leftPageData = null;
+  let rightPageData = null;
+  
   if (spread) {
     console.log('📖 Spread mode enabled');
     if (suffix) {
@@ -544,7 +547,6 @@ async function main() {
     console.log(`🔍 Looking for right page: ${rightJsonPath}`);
     
     // 左ページのデータを読み込み
-    let leftPageData = null;
     if (leftPageId !== currentPageId && fs.existsSync(leftJsonPath)) {
       const leftRaw = fs.readFileSync(leftJsonPath, 'utf-8');
       leftPageData = JSON.parse(leftRaw);
@@ -555,7 +557,6 @@ async function main() {
     }
     
     // 右ページのデータを読み込み
-    let rightPageData = null;
     if (rightPageId !== currentPageId && fs.existsSync(rightJsonPath)) {
       const rightRaw = fs.readFileSync(rightJsonPath, 'utf-8');
       rightPageData = JSON.parse(rightRaw);
