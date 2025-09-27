@@ -470,6 +470,10 @@ async function main() {
       // Try get ACF via v2 embed first, then acf/v3
       let acf = page.acf || {};
       console.log(`📋 ACF from embed: ${Object.keys(acf).length} fields`);
+      if (Object.keys(acf).length > 0) {
+        console.log(`📋 ACF fields from embed: ${Object.keys(acf).join(', ')}`);
+      }
+      
       if (!acf || Object.keys(acf).length === 0) {
         try {
           console.log(`🔄 Trying ACF v3 API...`);
@@ -477,6 +481,9 @@ async function main() {
           if (acfResp && acfResp.acf) {
             acf = acfResp.acf;
             console.log(`✅ ACF v3: ${Object.keys(acf).length} fields`);
+            if (Object.keys(acf).length > 0) {
+              console.log(`📋 ACF fields from v3: ${Object.keys(acf).join(', ')}`);
+            }
           }
         } catch (e) {
           console.warn(`⚠️ ACF v3 failed: ${e.message}`);
@@ -487,6 +494,15 @@ async function main() {
       const templateSlug = page.template || 'default';
       const templateType = detectTemplateType(templateSlug);
       
+      // pdf_page_numberの詳細ログ
+      console.log(`🔍 PDF Page Number analysis for page ${id}:`);
+      console.log(`   - ACF pdf_page_number: ${acf.pdf_page_number || 'not set'}`);
+      console.log(`   - ACF pdf_page_number type: ${typeof acf.pdf_page_number}`);
+      console.log(`   - Page ID fallback: ${parseInt(id)}`);
+      
+      const finalPageNumber = acf.pdf_page_number || parseInt(id);
+      console.log(`   - Final pdf_page_number: ${finalPageNumber}`);
+
       // 基本コンテンツオブジェクト
       const content = {
         id: Number(id),
@@ -495,7 +511,7 @@ async function main() {
         title: acf.title || page.title?.rendered || slug,
         modified: page.modified || page.date || new Date().toISOString(),
         // 共通フィールド（PDFには出力しない）
-        pdf_page_number: acf.pdf_page_number || parseInt(id) // フォールバック：IDを使用
+        pdf_page_number: finalPageNumber
       };
 
       // テンプレート別フィールド処理

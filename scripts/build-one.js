@@ -604,13 +604,19 @@ async function main() {
     
     if (!leftPageData || !rightPageData) {
       console.log(`⚠️ Missing page data - Left: ${!!leftPageData}, Right: ${!!rightPageData}`);
+      console.log(`🔍 Detailed analysis:`);
+      console.log(`   - Looking for left page number: ${leftPageNumber}`);
+      console.log(`   - Looking for right page number: ${rightPageNumber}`);
       console.log(`🔍 Available files and their page numbers:`);
       allFiles.forEach(file => {
         try {
           const filePath = path.join(dir, file);
           const fileData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
           const filePageNumber = parseInt(fileData.pdf_page_number || fileData.id);
-          console.log(`  - ${file}: page number ${filePageNumber}`);
+          const isLeftMatch = filePageNumber === leftPageNumber;
+          const isRightMatch = filePageNumber === rightPageNumber;
+          const matchStatus = isLeftMatch ? ' ← LEFT MATCH' : isRightMatch ? ' ← RIGHT MATCH' : '';
+          console.log(`  - ${file}: page number ${filePageNumber} (title: ${fileData.title || 'Untitled'})${matchStatus}`);
         } catch (e) {
           console.log(`  - ${file}: could not read`);
         }
