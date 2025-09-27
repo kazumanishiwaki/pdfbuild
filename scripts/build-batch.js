@@ -59,6 +59,35 @@ async function main() {
     process.exit(1);
   }
 
+  // Build a quick page index for efficient adjacent-page lookup
+  // Map: pdf_page_number (number) -> absolute file path
+  try {
+    const index = {};
+    let minNum = Infinity;
+    let maxNum = -Infinity;
+    for (const f of files) {
+      try {
+        const raw = fs.readFileSync(f, 'utf-8');
+        const data = JSON.parse(raw);
+        const n = parseInt(data.pdf_page_number || data.id);
+        if (!Number.isNaN(n)) {
+          index[n] = f;
+          if (n < minNum) minNum = n;
+          if (n > maxNum) maxNum = n;
+        }
+      } catch (e) {
+        // ignore malformed files but continue
+      }
+    }
+    const indexPath = path.join(srcDir, 'page-index.json');
+    fs.writeFileSync(indexPath, JSON.stringify(index, null, 2));
+    const count = Object.keys(index).length;
+    console.log(`Built page-index.json with ${count} page(s).`);
+    if (count) console.log(`  Range: ${minNum}..${maxNum}`);
+  } catch (e) {
+    console.warn('⚠️ Failed to build page-index.json:', e.message);
+  }
+
   console.log(`Found ${files.length} content file(s).`);
   for (const f of files) {
     console.log('→ Building', f);
@@ -75,4 +104,3 @@ main().catch((e) => {
   console.error(e);
   process.exit(1);
 });
-

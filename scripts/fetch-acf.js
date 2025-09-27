@@ -406,6 +406,66 @@ async function enrichImages(content, base, headers) {
   return content;
 }
 
+// ACFページ一覧を走査して、目的のpdf_page_numberに一致するIDを発見する
+async function findIdsByPdfPageNumbers(base, headers = {}, targetNumbers = [], opts = {}) {
+  const root = base.replace(/\/$/, '');
+  const perPage = opts.perPage || 100;
+  const maxPages = opts.maxPages || 20; // 最大2000件まで走査
+  const targets = new Set(targetNumbers.map(n => Number(n)).filter(n => Number.isFinite(n) && n > 0));
+  const found = new Map(); // number -> id
+
+  if (!targets.size) return found;
+
+  console.log(`🔎 Discovering adjacent pages by pdf_page_number via ACF v3 list`);
+  console.log(`   - Targets: ${[...targets].join(', ')}`);
+
+  for (let p = 1; p <= maxPages; p++) {
+    let url = `${root}/wp-json/acf/v3/pages?per_page=${perPage}&page=${p}`;
+    try {
+      const list = await getJSON(url, headers);
+      if (!Array.isArray(list) || list.length === 0) {
+        console.log(`   • No more ACF pages at page=${p}`);
+        break;
+      }
+      for (const item of list) {
+        const n = Number(item?.acf?.pdf_page_number);
+        if (targets.has(n) && !found.has(n)) {
+          found.set(n, item.id);
+          console.log(`   ✅ Found page for number ${n}: ID=${item.id}`);
+        }
+      }
+      if (found.size === targets.size) {
+        console.log(`   ✅ All target numbers resolved`);
+        break;
+      }
+    } catch (error) {
+      const wafBlocked = error.status === 403 && /XSERVER Inc\./i.test(error.body || '');
+      if (wafBlocked) {
+        console.warn(`⚠️ WAF block on ACF list: retrying via query route (page=${p})`);
+        const qurl = `${root}/index.php?rest_route=/acf/v3/pages&per_page=${perPage}&page=${p}`;
+        const list = await getJSON(qurl, headers);
+        if (!Array.isArray(list) || list.length === 0) break;
+        for (const item of list) {
+          const n = Number(item?.acf?.pdf_page_number);
+          if (targets.has(n) && !found.has(n)) {
+            found.set(n, item.id);
+            console.log(`   ✅ Found page for number ${n}: ID=${item.id}`);
+          }
+        }
+        if (found.size === targets.size) break;
+      } else {
+        console.warn(`⚠️ ACF list failed at page=${p}: ${error.message}`);
+        break; // 連続失敗時は中断
+      }
+    }
+  }
+
+  if (found.size === 0) {
+    console.warn(`⚠️ No pages discovered for target numbers.`);
+  }
+  return found;
+}
+
 async function main() {
   const idsArg = process.argv[2] || '';
   const ids = idsArg.split(',').map((s) => s.trim()).filter(Boolean);
@@ -414,6 +474,8 @@ async function main() {
   const ALLOW_DUMMY = /^(1|true|yes)$/i.test(process.env.ALLOW_DUMMY || '');
   const WP_BASIC_USER = process.env.WP_BASIC_USER || process.env.WP_APP_USER || '';
   const WP_BASIC_PASS = process.env.WP_BASIC_PASS || process.env.WP_APP_PASS || '';
+  const SPREAD_MODE = /^(1|true|yes)$/i.test(process.env.SPREAD_MODE || '');
+  const DISCOVER_ADJ = /^(1|true|yes)$/i.test(process.env.DISCOVER_ADJACENT_BY_PAGENUM || '');
 
   if (!WP_URL || !ids.length) {
     console.error('WP_URL and ids are required to fetch real data.');
@@ -423,6 +485,9 @@ async function main() {
 
   const idSlug = {};
   let wroteAny = false;
+  const fetchedIds = new Set();
+  const haveNumbers = new Set();
+  const adjacentNumbers = new Set();
   for (const id of ids) {
     console.log(`\n🔍 Processing page ID: ${id}`);
     try {
@@ -530,6 +595,15 @@ async function main() {
       writeJSON(`content-${filename}.json`, content);
       console.log(`✅ Page fetched: ${slug} (ID: ${id})`);
       wroteAny = true;
+      // 集計: フェッチ済みID / 既得ページ番号 / 隣接候補番号
+      fetchedIds.add(Number(id));
+      haveNumbers.add(Number(finalPageNumber));
+      if (SPREAD_MODE) {
+        const leftNum = (finalPageNumber % 2 === 0) ? finalPageNumber : finalPageNumber - 1;
+        const rightNum = (finalPageNumber % 2 === 0) ? finalPageNumber + 1 : finalPageNumber;
+        if (leftNum > 0) adjacentNumbers.add(leftNum);
+        if (rightNum > 0) adjacentNumbers.add(rightNum);
+      }
     } catch (e) {
       if (e.status === 404) {
         console.log(`⚠️ Page ${id} not found (404), skipping...`);
@@ -547,15 +621,63 @@ async function main() {
     process.exit(1);
   }
   
-  // 見開きモードの場合、隣接ページも取得
-  const SPREAD_MODE = /^(1|true|yes)$/i.test(process.env.SPREAD_MODE || '');
-  if (SPREAD_MODE) {
-    console.log('\n📖 Spread mode: disabled additional page fetching to prevent loops');
-    console.log('📝 Adjacent pages will be handled by build-one.js if available in the same directory');
-    
-    // 見開きモードでの追加取得は無効化
-    // build-one.jsが同じディレクトリ内の既存ファイルから隣接ページを探すため、
-    // ここでの追加取得は不要で、エラーループの原因となる
+  // 見開きモードかつ指示がある場合、ページ番号ベースで相方ページを自動取得
+  if (SPREAD_MODE && DISCOVER_ADJ) {
+    console.log('\n📖 Spread mode: discovering adjacent pages by pdf_page_number');
+    const toFind = [...adjacentNumbers].filter(n => !haveNumbers.has(n));
+    if (toFind.length === 0) {
+      console.log('🟢 No additional adjacent pages needed');
+    } else {
+      const authHeaders = buildAuthHeadersFromEnv();
+      const headers = { 'Accept': 'application/json', ...authHeaders };
+      const map = await findIdsByPdfPageNumbers(WP_URL, headers, toFind, { perPage: 100, maxPages: 20 });
+      const idsToFetch = [...map.values()].filter((pid) => !fetchedIds.has(Number(pid)));
+      if (idsToFetch.length) {
+        console.log(`🔄 Fetching ${idsToFetch.length} adjacent page(s): ${idsToFetch.join(', ')}`);
+        for (const aid of idsToFetch) {
+          try {
+            // 再利用: 既存の単体フェッチ手順をそのまま実行
+            console.log(`\n🔍 Processing adjacent page ID: ${aid}`);
+            const page = await fetchPage(aid, WP_URL, headers);
+            if (!page || !page.id) { console.log(`⚠️ Page ${aid} not found or invalid, skipping...`); continue; }
+            const slug = page.slug || String(aid);
+            const filename = String(aid);
+            idSlug[String(aid)] = slug;
+            idSlug[slug] = Number(aid);
+            let acf = page.acf || {};
+            if (!acf || Object.keys(acf).length === 0) {
+              try {
+                const acfResp = await fetchACF(aid, WP_URL, headers);
+                if (acfResp && acfResp.acf) acf = acfResp.acf;
+              } catch {}
+            }
+            const templateSlug = page.template || 'default';
+            const templateType = detectTemplateType(templateSlug);
+            const finalPageNumber = acf.pdf_page_number || parseInt(aid);
+            const content = {
+              id: Number(aid),
+              slug,
+              template: templateType,
+              title: acf.title || page.title?.rendered || slug,
+              modified: page.modified || page.date || new Date().toISOString(),
+              pdf_page_number: finalPageNumber
+            };
+            processTemplateFields(content, acf, templateType);
+            await enrichImages(content, WP_URL, headers);
+            writeJSON(`content-${filename}.json`, content);
+            console.log(`✅ Adjacent page fetched: ${slug} (ID: ${aid})`);
+            fetchedIds.add(Number(aid));
+            haveNumbers.add(Number(finalPageNumber));
+          } catch (e) {
+            console.warn(`⚠️ Failed to fetch adjacent id=${aid}: ${e.message}`);
+          }
+        }
+      } else {
+        console.log('⚪ No new adjacent page IDs resolved');
+      }
+    }
+  } else if (SPREAD_MODE) {
+    console.log('\n📖 Spread mode: adjacent auto-fetch disabled (DISCOVER_ADJACENT_BY_PAGENUM not enabled)');
   }
   
   writeJSON('id-slug-map.json', idSlug);

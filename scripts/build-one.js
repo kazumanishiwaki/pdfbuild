@@ -543,37 +543,54 @@ async function main() {
     console.log(`🔍 Current page ID: ${currentPageId}, PDF page number: ${currentPageNumber}`);
     console.log(`🔍 Left page number: ${leftPageNumber}, Right page number: ${rightPageNumber}`);
     
-    // 隣接ページのファイルを探す（全てのcontent-*.jsonファイルを確認）
+    // 隣接ページのファイルを探す
     const dir = path.dirname(json);
-    const allFiles = fs.readdirSync(dir).filter(f => f.startsWith('content-') && f.endsWith('.json'));
-    
-    console.log(`🔍 Searching for adjacent pages in directory: ${dir}`);
-    console.log(`📁 Available content files: ${allFiles.length} files`);
-    
+    const indexPath = path.join(dir, 'page-index.json');
     let leftPageFile = null, rightPageFile = null;
-    
-    for (const file of allFiles) {
+
+    if (fs.existsSync(indexPath)) {
+      // インデックスによる高速検索
       try {
-        const filePath = path.join(dir, file);
-        const fileData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-        const filePageNumber = parseInt(fileData.pdf_page_number || fileData.id);
-        
-        console.log(`   📄 ${file}: page number ${filePageNumber} (title: ${fileData.title || 'Untitled'})`);
-        
-        if (filePageNumber === leftPageNumber) {
-          leftPageFile = filePath;
-          console.log(`   ✅ → Selected as LEFT page (${filePageNumber})`);
-        } else if (filePageNumber === rightPageNumber) {
-          rightPageFile = filePath;
-          console.log(`   ✅ → Selected as RIGHT page (${filePageNumber})`);
-        }
+        const pageIndex = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
+        console.log(`🔍 Using page-index.json for adjacent lookup: ${indexPath}`);
+        leftPageFile = pageIndex[leftPageNumber] || null;
+        rightPageFile = pageIndex[rightPageNumber] || null;
+        console.log(`🎯 Index results: Left: ${leftPageFile ? 'found' : 'NOT FOUND'}, Right: ${rightPageFile ? 'found' : 'NOT FOUND'}`);
+        console.log('');
       } catch (e) {
-        console.warn(`   ⚠️ Could not read file ${file}: ${e.message}`);
+        console.warn(`⚠️ Failed to read page-index.json: ${e.message}`);
       }
     }
-    
-    console.log(`🎯 Search results: Left page file: ${leftPageFile ? 'found' : 'NOT FOUND'}, Right page file: ${rightPageFile ? 'found' : 'NOT FOUND'}`);
-    console.log('');
+
+    // フォールバック：全ファイルを走査
+    if (!leftPageFile || !rightPageFile) {
+      const allFiles = fs.readdirSync(dir).filter(f => f.startsWith('content-') && f.endsWith('.json'));
+      console.log(`🔍 Searching for adjacent pages in directory: ${dir}`);
+      console.log(`📁 Available content files: ${allFiles.length} files`);
+
+      for (const file of allFiles) {
+        try {
+          const filePath = path.join(dir, file);
+          const fileData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+          const filePageNumber = parseInt(fileData.pdf_page_number || fileData.id);
+
+          console.log(`   📄 ${file}: page number ${filePageNumber} (title: ${fileData.title || 'Untitled'})`);
+
+          if (!leftPageFile && filePageNumber === leftPageNumber) {
+            leftPageFile = filePath;
+            console.log(`   ✅ → Selected as LEFT page (${filePageNumber})`);
+          } else if (!rightPageFile && filePageNumber === rightPageNumber) {
+            rightPageFile = filePath;
+            console.log(`   ✅ → Selected as RIGHT page (${filePageNumber})`);
+          }
+        } catch (e) {
+          console.warn(`   ⚠️ Could not read file ${file}: ${e.message}`);
+        }
+      }
+
+      console.log(`🎯 Search results: Left page file: ${leftPageFile ? 'found' : 'NOT FOUND'}, Right page file: ${rightPageFile ? 'found' : 'NOT FOUND'}`);
+      console.log('');
+    }
     
     // 左ページのデータを読み込み
     if (leftPageFile && leftPageNumber !== currentPageNumber) {
