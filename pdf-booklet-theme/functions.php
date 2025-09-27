@@ -1476,7 +1476,7 @@ function trigger_github_actions_for_page($page_id) {
         'ref' => 'main',
         'inputs' => [
             'wp_post_ids' => (string)$page_id,
-            'target_slug' => '',
+            'target_slug' => (string)$page_id, // ページIDをtarget_slugとして使用
             'template_type' => '',
             'concurrency' => '2',
             'skip_schema' => '0',
@@ -1539,7 +1539,7 @@ function trigger_github_actions_for_spread_pdf($page_id, $filename) {
         'ref' => 'main',
         'inputs' => [
             'wp_post_ids' => (string)$page_id,
-            'target_slug' => '',
+            'target_slug' => (string)$page_id, // ページIDをtarget_slugとして使用
             'template_type' => 'spread', // 見開き表示用のフラグ
             'concurrency' => '1',
             'skip_schema' => '0',
