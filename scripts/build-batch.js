@@ -23,6 +23,8 @@ function parseArgs() {
     if (a === '--src') opts.src = args[++i];
     else if (a === '--out') opts.out = args[++i];
     else if (a === '--pdf') opts.pdf = true; // force attempt
+    else if (a === '--spread') opts.spread = true; // spread mode
+    else if (a === '--suffix') opts.suffix = args[++i]; // output suffix
   }
   return opts;
 }
@@ -33,10 +35,12 @@ function listContentFiles(srcDir) {
     .map(f => path.join(srcDir, f));
 }
 
-function runOne(jsonPath, outDir, forcePdf) {
+function runOne(jsonPath, outDir, forcePdf, spread, suffix) {
   return new Promise((resolve, reject) => {
     const args = ['scripts/build-one.js', '--json', jsonPath, '--out', outDir];
     if (forcePdf) args.push('--pdf');
+    if (spread) args.push('--spread');
+    if (suffix) args.push('--suffix', suffix);
     const child = spawn(process.execPath, args, { stdio: 'inherit' });
     child.on('exit', (code) => {
       if (code === 0) resolve(); else reject(new Error(`build-one failed: ${jsonPath}`));
@@ -45,7 +49,7 @@ function runOne(jsonPath, outDir, forcePdf) {
 }
 
 async function main() {
-  const { src, out, pdf: forcePdf } = parseArgs();
+  const { src, out, pdf: forcePdf, spread, suffix } = parseArgs();
   const srcDir = path.resolve(process.cwd(), src);
   const outDir = path.resolve(process.cwd(), out);
 
@@ -58,7 +62,9 @@ async function main() {
   console.log(`Found ${files.length} content file(s).`);
   for (const f of files) {
     console.log('→ Building', f);
-    await runOne(f, outDir, !!forcePdf).catch((e) => {
+    if (spread) console.log('  📖 Spread mode enabled');
+    if (suffix) console.log(`  📝 Output suffix: ${suffix}`);
+    await runOne(f, outDir, !!forcePdf, spread, suffix).catch((e) => {
       console.error(e.message);
     });
   }

@@ -279,18 +279,42 @@ jobs:
 
 
 
-      - name: Upload PDFs to WordPress via FTP
+      - name: Upload PDFs to WordPress via FTP (individual files)
         id: ftp_upload
         if: ${{ env.FTP_SERVER != '' && env.FTP_USERNAME != '' && env.FTP_PASSWORD != '' }}
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ env.FTP_SERVER }}
-          username: ${{ env.FTP_USERNAME }}
-          password: ${{ env.FTP_PASSWORD }}
-          protocol: ftp
-          local-dir: ${{ env.WORK_DIR }}/deploy/
-          server-dir: ${{ env.FTP_TARGET_DIR }}
-          log-level: verbose
+        run: |
+          set -euo pipefail
+          cd "$WORK_DIR"
+          
+          # 生成されたPDFファイルを個別にアップロード
+          if ls deploy/booklet-*.pdf 1> /dev/null 2>&1; then
+            echo "📤 Uploading individual PDF files to prevent deletion of existing files"
+            
+            # FTPコマンドでの個別ファイルアップロード
+            for pdf_file in deploy/booklet-*.pdf; do
+              if [ -f "$pdf_file" ]; then
+                filename=$(basename "$pdf_file")
+                echo "📤 Uploading: $filename"
+                
+                # FTPコマンドを使用して個別ファイルをアップロード
+                ftp -n "$FTP_SERVER" << EOF
+user $FTP_USERNAME $FTP_PASSWORD
+binary
+cd $FTP_TARGET_DIR
+put $pdf_file $filename
+quit
+EOF
+                
+                if [ $? -eq 0 ]; then
+                  echo "✅ Successfully uploaded: $filename"
+                else
+                  echo "❌ Failed to upload: $filename"
+                fi
+              fi
+            done
+          else
+            echo "⚠️ No PDF files to upload"
+          fi
 
 
       - name: Verify public URL (optional)
