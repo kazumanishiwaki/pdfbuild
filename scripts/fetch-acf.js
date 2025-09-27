@@ -100,12 +100,17 @@ function buildAuthHeadersFromEnv() {
 
 async function fetchPage(id, base, headers = {}) {
   const root = base.replace(/\/$/, '');
-  const pathUrl = `${root}/wp-json/wp/v2/pages/${encodeURIComponent(id)}?_embed`; // 公開はまず無認証で
+  const pathUrl = `${root}/wp-json/wp/v2/pages/${encodeURIComponent(id)}?_embed`;
   const queryUrl = `${root}/index.php?rest_route=/wp/v2/pages/${encodeURIComponent(id)}&_embed`;
+  
+  console.log(`🔗 Attempting to fetch page ${id} from: ${pathUrl}`);
+  console.log(`🔑 Headers being sent:`, Object.keys(headers).join(', '));
   
   try {
     return await getJSON(pathUrl, headers);
   } catch (error) {
+    console.log(`❌ First attempt failed with status ${error.status}`);
+    
     // WAFブロック検出（XSERVERなど）
     const wafBlocked = error.status === 403 && /XSERVER Inc\./i.test(error.body || '');
     if (wafBlocked) {
@@ -114,8 +119,22 @@ async function fetchPage(id, base, headers = {}) {
         return await getJSON(queryUrl, headers);
       } catch (queryError) {
         console.warn(`⚠️ Query route also failed: ${queryError.status}`);
-        // Query route failed, proceed to auth retry
         error = queryError;
+      }
+    }
+    
+    // 403/401エラーの場合、認証情報を再確認
+    if (error.status === 403 || error.status === 401) {
+      console.log(`🔐 Authentication error detected. Checking auth headers...`);
+      if (headers.Authorization) {
+        console.log(`🔑 Authorization header present: ${headers.Authorization.substring(0, 20)}...`);
+        if (headers.Authorization.startsWith('Bearer')) {
+          console.log(`🎫 JWT token format detected`);
+        } else if (headers.Authorization.startsWith('Basic')) {
+          console.log(`🔒 Basic auth format detected`);
+        }
+      } else {
+        console.log(`❌ No Authorization header found in request`);
       }
     }
     
@@ -414,6 +433,22 @@ async function main() {
       if (authHeaders.Authorization) {
         if (authHeaders.Authorization.startsWith('Bearer')) {
           console.log(`🔐 Using JWT authentication (Bearer token present)`);
+          // JWTトークンの基本的な検証
+          const token = authHeaders.Authorization.replace('Bearer ', '');
+          try {
+            const parts = token.split('.');
+            if (parts.length === 3) {
+              const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+              console.log(`🎫 JWT payload preview - iss: ${payload.iss || 'not set'}, exp: ${payload.exp ? new Date(payload.exp * 1000).toISOString() : 'not set'}`);
+              if (payload.exp && payload.exp * 1000 < Date.now()) {
+                console.warn(`⚠️ JWT token appears to be expired!`);
+              }
+            } else {
+              console.warn(`⚠️ JWT token format appears invalid (${parts.length} parts instead of 3)`);
+            }
+          } catch (e) {
+            console.warn(`⚠️ Could not parse JWT token: ${e.message}`);
+          }
         } else if (authHeaders.Authorization.startsWith('Basic')) {
           console.log(`🔐 Using Basic authentication (Basic auth present)`);
         }

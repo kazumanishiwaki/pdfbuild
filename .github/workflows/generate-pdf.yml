@@ -162,6 +162,31 @@ jobs:
             echo "❌ WARNING: WordPress site may not be accessible"
           fi
           
+          # REST API認証テスト
+          if [ -n "${WP_JWT:-}" ]; then
+            echo "🔐 Testing JWT authentication..."
+            REST_URL="${WP_URL%/}/wp-json/wp/v2/users/me"
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $WP_JWT" "$REST_URL")
+            echo "📊 JWT auth test result: HTTP $HTTP_STATUS"
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "✅ JWT authentication working"
+            else
+              echo "❌ JWT authentication failed"
+            fi
+          elif [ -n "${WP_BASIC_USER:-}" ] && [ -n "${WP_BASIC_PASS:-}" ]; then
+            echo "🔐 Testing Basic authentication..."
+            REST_URL="${WP_URL%/}/wp-json/wp/v2/users/me"
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -u "$WP_BASIC_USER:$WP_BASIC_PASS" "$REST_URL")
+            echo "📊 Basic auth test result: HTTP $HTTP_STATUS"
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "✅ Basic authentication working"
+            else
+              echo "❌ Basic authentication failed"
+            fi
+          else
+            echo "🔓 No authentication credentials to test"
+          fi
+          
           test -f scripts/fetch-acf.js
           
           # 見開きモードでも基本的には指定されたページのみ取得
