@@ -407,8 +407,22 @@ async function main() {
   for (const id of ids) {
     console.log(`\n🔍 Processing page ID: ${id}`);
     try {
-      const headers = { 'Accept': 'application/json' };
-      console.log(`🔓 Trying public access first...`);
+      // 認証ヘッダーを構築
+      const authHeaders = buildAuthHeadersFromEnv();
+      const headers = { 'Accept': 'application/json', ...authHeaders };
+      
+      if (authHeaders.Authorization) {
+        if (authHeaders.Authorization.startsWith('Bearer')) {
+          console.log(`🔐 Using JWT authentication (Bearer token present)`);
+        } else if (authHeaders.Authorization.startsWith('Basic')) {
+          console.log(`🔐 Using Basic authentication (Basic auth present)`);
+        }
+        console.log(`🔍 Auth header: ${authHeaders.Authorization.substring(0, 20)}...`);
+      } else {
+        console.log(`🔓 Using public access (no auth credentials)`);
+        console.log(`🔍 Environment check - WP_JWT: ${process.env.WP_JWT ? 'present' : 'missing'}, WP_BASIC_USER: ${process.env.WP_BASIC_USER ? 'present' : 'missing'}`);
+      }
+      
       const page = await fetchPage(id, WP_URL, headers);
       const slug = page.slug || String(id);
       console.log(`✅ Page fetched: ${slug} (ID: ${id})`);
