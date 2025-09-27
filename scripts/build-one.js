@@ -208,7 +208,7 @@ function generateTimeline(title, items) {
   `;
 }
 
-function renderHTML(data, spread = false, nextPageData = null) {
+function renderHTML(data, spread = false, nextPageData = null, leftPageData = null, rightPageData = null) {
   const title = htmlEscape(data.title || 'Untitled');
   const template = data.template || 'text-photo2';
   
@@ -383,19 +383,25 @@ function renderHTML(data, spread = false, nextPageData = null) {
     ${spread ? `
     <div class="spread-layout">
       <div class="spread-page">
+        ${leftPageData ? `
         <div class="timestamp">最終更新: ${jstTimestamp}</div>
-        <h1>${title}</h1>
-        ${generateTemplateContent(data, template)}
-      </div>
-      <div class="spread-page">
-        ${nextPageData ? `
-        <div class="timestamp">最終更新: ${jstTimestamp}</div>
-        <h1>${htmlEscape(nextPageData.title || 'Untitled')}</h1>
-        ${generateTemplateContent(nextPageData, nextPageData.template || 'text-photo2')}
+        <h1>${htmlEscape(leftPageData.title || 'Untitled')}</h1>
+        ${generateTemplateContent(leftPageData, leftPageData.template || 'text-photo2')}
         ` : `
         <div class="timestamp">最終更新: ${jstTimestamp}</div>
-        <h1>次のページがありません</h1>
-        <p>このページは見開きの右ページですが、対応する次のページが見つかりませんでした。</p>
+        <h1>左ページがありません</h1>
+        <p>見開きの左ページが見つかりませんでした。</p>
+        `}
+      </div>
+      <div class="spread-page">
+        ${rightPageData ? `
+        <div class="timestamp">最終更新: ${jstTimestamp}</div>
+        <h1>${htmlEscape(rightPageData.title || 'Untitled')}</h1>
+        ${generateTemplateContent(rightPageData, rightPageData.template || 'text-photo2')}
+        ` : `
+        <div class="timestamp">最終更新: ${jstTimestamp}</div>
+        <h1>右ページがありません</h1>
+        <p>見開きの右ページが見つかりませんでした。</p>
         `}
       </div>
     </div>
@@ -468,17 +474,17 @@ async function maybeCreatePDF(htmlPath, pdfPath, force = false, spread = false) 
       // PDF生成（見開きモード対応）
       const pdfOptions = {
         path: pdfPath, 
-        format: 'A4', 
-        landscape: !spread, // 見開きモードでは縦向き
+        format: spread ? 'A3' : 'A4',  // 見開きモードではA3サイズ
+        landscape: true,  // 見開きモードでも横向き
         printBackground: true, 
         margin: spread ? 
-          { top: 10, right: 10, bottom: 10, left: 10 } : 
+          { top: 8, right: 8, bottom: 8, left: 8 } : 
           { top: 14, right: 14, bottom: 14, left: 14 },
         preferCSSPageSize: true
       };
       
       if (spread) {
-        console.log('📖 Generating spread PDF in portrait mode');
+        console.log('📖 Generating spread PDF in A3 landscape mode');
       }
       
       await page.pdf(pdfOptions);
@@ -515,17 +521,63 @@ async function main() {
       console.log(`📝 Output suffix: ${suffix}`);
     }
     
-    // 現在のページIDから次のページIDを計算
+    // 見開きページの計算（偶数ページを左、奇数ページを右に配置）
     const currentPageId = parseInt(data.id);
-    const nextPageId = currentPageId + 1;
-    const nextJsonPath = json.replace(`content-${currentPageId}.json`, `content-${nextPageId}.json`);
+    let leftPageId, rightPageId;
     
-    if (fs.existsSync(nextJsonPath)) {
-      const nextRaw = fs.readFileSync(nextJsonPath, 'utf-8');
-      nextPageData = JSON.parse(nextRaw);
-      console.log(`📄 Next page loaded: ${nextPageId}`);
+    if (currentPageId % 2 === 0) {
+      // 偶数ページの場合：現在のページが左、次のページが右
+      leftPageId = currentPageId;
+      rightPageId = currentPageId + 1;
     } else {
-      console.log(`⚠️ Next page not found: ${nextJsonPath}`);
+      // 奇数ページの場合：前のページが左、現在のページが右
+      leftPageId = currentPageId - 1;
+      rightPageId = currentPageId;
+    }
+    
+    const leftJsonPath = json.replace(`content-${currentPageId}.json`, `content-${leftPageId}.json`);
+    const rightJsonPath = json.replace(`content-${currentPageId}.json`, `content-${rightPageId}.json`);
+    
+    console.log(`🔍 Current page ID: ${currentPageId}`);
+    console.log(`🔍 Left page ID: ${leftPageId}, Right page ID: ${rightPageId}`);
+    console.log(`🔍 Looking for left page: ${leftJsonPath}`);
+    console.log(`🔍 Looking for right page: ${rightJsonPath}`);
+    
+    // 左ページのデータを読み込み
+    let leftPageData = null;
+    if (leftPageId !== currentPageId && fs.existsSync(leftJsonPath)) {
+      const leftRaw = fs.readFileSync(leftJsonPath, 'utf-8');
+      leftPageData = JSON.parse(leftRaw);
+      console.log(`📄 Left page loaded: ${leftPageId} (${leftPageData.title || 'Untitled'})`);
+    } else if (leftPageId === currentPageId) {
+      leftPageData = data;
+      console.log(`📄 Left page is current page: ${leftPageId}`);
+    }
+    
+    // 右ページのデータを読み込み
+    let rightPageData = null;
+    if (rightPageId !== currentPageId && fs.existsSync(rightJsonPath)) {
+      const rightRaw = fs.readFileSync(rightJsonPath, 'utf-8');
+      rightPageData = JSON.parse(rightRaw);
+      console.log(`📄 Right page loaded: ${rightPageId} (${rightPageData.title || 'Untitled'})`);
+    } else if (rightPageId === currentPageId) {
+      rightPageData = data;
+      console.log(`📄 Right page is current page: ${rightPageId}`);
+    }
+    
+    // nextPageDataを適切に設定（後方互換性のため）
+    if (currentPageId % 2 === 0) {
+      nextPageData = rightPageData;
+    } else {
+      nextPageData = leftPageData;
+    }
+    
+    if (!leftPageData || !rightPageData) {
+      console.log(`⚠️ Missing page data - Left: ${!!leftPageData}, Right: ${!!rightPageData}`);
+      console.log(`🔍 Available files in directory:`);
+      const dir = path.dirname(json);
+      const files = fs.readdirSync(dir).filter(f => f.startsWith('content-'));
+      console.log(files.join(', '));
     }
   }
   
@@ -538,7 +590,7 @@ async function main() {
   }
 
   ensureDir(out);
-  const html = renderHTML(data, spread, nextPageData);
+  const html = renderHTML(data, spread, nextPageData, spread ? leftPageData : null, spread ? rightPageData : null);
   const htmlPath = path.resolve(out, `booklet-${filename}.html`);
   const pdfPath = path.resolve(out, `booklet-${filename}.pdf`);
   fs.writeFileSync(htmlPath, html);
