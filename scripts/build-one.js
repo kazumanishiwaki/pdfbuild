@@ -505,7 +505,8 @@ async function maybeCreatePDF(htmlPath, pdfPath, force = false, spread = false) 
 }
 
 async function main() {
-  const { json, out = 'out', pdf: forcePdf, spread, suffix } = parseArgs();
+  const { json, out = 'out', pdf: forcePdf, suffix } = parseArgs();
+  let spread = parseArgs().spread; // letで宣言して後で変更可能にする
   if (!json) {
     console.error('Usage: node scripts/build-one.js --json <content-json> [--out out] [--pdf] [--spread] [--suffix <suffix>]');
     process.exit(1);
@@ -615,14 +616,21 @@ async function main() {
         }
       });
       
-      // 隣接ページが見つからない場合は、現在のページを両側に表示
-      if (!leftPageData) {
-        leftPageData = data;
-        console.log(`📄 Using current page as left page fallback`);
-      }
-      if (!rightPageData) {
-        rightPageData = data;
-        console.log(`📄 Using current page as right page fallback`);
+      // 隣接ページが見つからない場合の処理
+      if (!leftPageData || !rightPageData) {
+        console.log(`⚠️ WARNING: Missing adjacent page for spread layout`);
+        console.log(`   - Left page: ${leftPageData ? 'found' : 'MISSING'}`);
+        console.log(`   - Right page: ${rightPageData ? 'found' : 'MISSING'}`);
+        
+        // 見開きに必要な隣接ページが見つからない場合は、見開きモードを無効化
+        console.log(`❌ Cannot create proper spread layout - disabling spread mode`);
+        console.log(`📄 Falling back to single page layout`);
+        
+        // 見開きモードを無効化して単独ページとして処理
+        spread = false;
+        leftPageData = null;
+        rightPageData = null;
+        nextPageData = null;
       }
     }
   }
@@ -637,9 +645,9 @@ async function main() {
 
   ensureDir(out);
   
-  // デバッグ用：見開きモードでの左右ページデータをログ出力
+  // デバッグ用：PDFレイアウトのログ出力
+  console.log('');
   if (spread) {
-    console.log('');
     console.log('📖 ========== SPREAD PDF LAYOUT DEBUG ==========');
     console.log(`🎯 Current page: ${data.title || 'Untitled'}`);
     console.log(`   - ID: ${data.id}`);
@@ -670,8 +678,16 @@ async function main() {
     const rightPageNum = rightPageData ? (rightPageData.pdf_page_number || rightPageData.id) : 'N/A';
     console.log(`   - Final layout: ${leftPageNum} ⇔ ${rightPageNum}`);
     console.log('================================================');
-    console.log('');
+  } else {
+    console.log('📄 ========== SINGLE PAGE LAYOUT DEBUG ==========');
+    console.log(`🎯 Current page: ${data.title || 'Untitled'}`);
+    console.log(`   - ID: ${data.id}`);
+    console.log(`   - PDF Page Number: ${data.pdf_page_number || 'not set'}`);
+    console.log(`   - Template: ${data.template || 'not set'}`);
+    console.log(`   - Layout: A4 landscape (single page)`);
+    console.log('================================================');
   }
+  console.log('');
   
   const html = renderHTML(data, spread, nextPageData, spread ? leftPageData : null, spread ? rightPageData : null);
   const htmlPath = path.resolve(out, `booklet-${filename}.html`);
