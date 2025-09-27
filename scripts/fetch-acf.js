@@ -254,7 +254,15 @@ function detectTemplateType(templateSlug) {
     'template-image-caption-3.php': 'image-caption-3',
     'template-image-caption-4.php': 'image-caption-4',
     'template-image-caption-only.php': 'image-caption-only',
+    'template-image-caption-3-medium-small.php': 'image-caption-3-medium-small',
     'template-timeline.php': 'timeline',
+    'template-heading-two-columns-text.php': 'heading-two-columns-text',
+    'template-heading-text-image-1.php': 'heading-text-image-1',
+    'template-heading-text-image-2.php': 'heading-text-image-2',
+    'template-heading-text-image-3-large-medium.php': 'heading-text-image-3-large-medium',
+    'template-heading-text-image-4-large-small.php': 'heading-text-image-4-large-small',
+    'template-heading-text-image-4-medium.php': 'heading-text-image-4-medium',
+    'template-heading-text-image-5-medium-small.php': 'heading-text-image-5-medium-small',
     // 後方互換性
     'template-text-photo2.php': 'text-photo2'
   };
@@ -316,6 +324,28 @@ function processTemplateFields(content, acf, templateType) {
       break;
       
     case 'image-caption-only':
+      content.image = normalizeImage(acf.image);
+      content.caption = acf.caption || '';
+      break;
+      
+    case 'image-caption-3-medium-small':
+      content.image_1 = normalizeImage(acf.image_1);
+      content.caption_1 = acf.caption_1 || '';
+      content.image_2 = normalizeImage(acf.image_2);
+      content.caption_2 = acf.caption_2 || '';
+      content.image_3 = normalizeImage(acf.image_3);
+      content.caption_3 = acf.caption_3 || '';
+      break;
+      
+    case 'heading-two-columns-text':
+      content.heading = acf.heading || '';
+      content.left_content = acf.left_content || '';
+      content.right_content = acf.right_content || '';
+      break;
+      
+    case 'heading-text-image-1':
+      content.heading = acf.heading || '';
+      content.left_content = acf.left_content || '';
       content.image = normalizeImage(acf.image);
       content.caption = acf.caption || '';
       break;

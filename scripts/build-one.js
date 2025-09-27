@@ -97,6 +97,41 @@ function generateTemplateContent(data, template) {
     case 'image-caption-only':
       return generateImageBlock(data.image, data.caption);
       
+    case 'image-caption-3-medium-small':
+      return `
+        <div class="image-grid-3">
+          ${generateImageBlock(data.image_1, data.caption_1)}
+          ${generateImageBlock(data.image_2, data.caption_2)}
+          ${generateImageBlock(data.image_3, data.caption_3)}
+        </div>
+      `;
+      
+    case 'heading-two-columns-text':
+      return `
+        ${data.heading ? `<h2>${htmlEscape(data.heading)}</h2>` : ''}
+        <div class="two-columns">
+          <div class="column-left">
+            ${data.left_content ? `<p>${htmlEscape(data.left_content)}</p>` : ''}
+          </div>
+          <div class="column-right">
+            ${data.right_content ? `<p>${htmlEscape(data.right_content)}</p>` : ''}
+          </div>
+        </div>
+      `;
+      
+    case 'heading-text-image-1':
+      return `
+        ${data.heading ? `<h2>${htmlEscape(data.heading)}</h2>` : ''}
+        <div class="text-image-layout">
+          <div class="text-content">
+            ${data.left_content ? `<p>${htmlEscape(data.left_content)}</p>` : ''}
+          </div>
+          <div class="image-content">
+            ${generateImageBlock(data.image, data.caption)}
+          </div>
+        </div>
+      `;
+      
     case 'text-photo2':
     default:
       // 後方互換性：既存のtext-photo2テンプレート
