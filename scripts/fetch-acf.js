@@ -253,6 +253,7 @@ function detectTemplateType(templateSlug) {
     'template-image-caption-2.php': 'image-caption-2',
     'template-image-caption-3.php': 'image-caption-3',
     'template-image-caption-4.php': 'image-caption-4',
+    'template-image-caption-only.php': 'image-caption-only',
     'template-timeline.php': 'timeline',
     // 後方互換性
     'template-text-photo2.php': 'text-photo2'
@@ -312,6 +313,11 @@ function processTemplateFields(content, acf, templateType) {
       content.caption_3 = acf.caption_3 || '';
       content.image_4 = normalizeImage(acf.image_4);
       content.caption_4 = acf.caption_4 || '';
+      break;
+      
+    case 'image-caption-only':
+      content.image = normalizeImage(acf.image);
+      content.caption = acf.caption || '';
       break;
       
     case 'timeline':

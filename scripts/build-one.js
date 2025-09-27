@@ -94,6 +94,9 @@ function generateTemplateContent(data, template) {
     case 'timeline':
       return generateTimeline(data.timeline_title, data.timeline_items);
       
+    case 'image-caption-only':
+      return generateImageBlock(data.image, data.caption);
+      
     case 'text-photo2':
     default:
       // 後方互換性：既存のtext-photo2テンプレート
