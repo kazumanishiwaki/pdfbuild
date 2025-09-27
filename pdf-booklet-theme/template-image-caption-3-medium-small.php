@@ -1,6 +1,6 @@
 <?php
 /**
- * Template Name: PDF Booklet: ⑩ 画像キャプション×3（中1小2）
+ * Template Name: ⑩ 画像キャプション×3（中1小2）
  * Description: 画像キャプション3つ（中1小2）を含むPDFブックレットテンプレート
  */
 

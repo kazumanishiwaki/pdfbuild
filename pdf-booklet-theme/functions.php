@@ -74,15 +74,60 @@ add_action('admin_notices', function() {
         $current_theme = wp_get_theme();
         $theme_name = $current_theme->get('Name');
         $theme_dir = get_template_directory();
+        $stylesheet_dir = get_stylesheet_directory();
+        
+        // テンプレートファイルの存在確認
+        $pdf_templates = pdf_booklet_get_supported_templates();
+        $existing_templates = [];
+        $missing_templates = [];
+        
+        foreach ($pdf_templates as $file => $name) {
+            $file_path = $stylesheet_dir . '/' . $file;
+            if (file_exists($file_path)) {
+                $existing_templates[] = $file;
+            } else {
+                $missing_templates[] = $file;
+            }
+        }
         
         echo '<div class="notice notice-info is-dismissible">';
         echo '<p><strong>PDF Booklet Debug:</strong></p>';
         echo '<ul>';
         echo '<li>functions.phpが正常に読み込まれました</li>';
         echo '<li>現在のテーマ: ' . esc_html($theme_name) . '</li>';
-        echo '<li>テーマディレクトリ: ' . esc_html($theme_dir) . '</li>';
-        echo '<li>PDF対応テンプレート: ' . implode(', ', array_keys(pdf_booklet_get_supported_templates())) . '</li>';
+        echo '<li>テンプレートディレクトリ: ' . esc_html($theme_dir) . '</li>';
+        echo '<li>スタイルシートディレクトリ: ' . esc_html($stylesheet_dir) . '</li>';
+        echo '<li>PDF対応テンプレート数: ' . count($pdf_templates) . '</li>';
+        echo '<li>存在するテンプレート数: ' . count($existing_templates) . '</li>';
+        if (!empty($missing_templates)) {
+            echo '<li style="color: red;">不足テンプレート: ' . implode(', ', $missing_templates) . '</li>';
+        }
         echo '</ul>';
+        
+        // ページ編集画面の場合は追加情報を表示
+        $screen = get_current_screen();
+        if ($screen && ($screen->id === 'page' || $screen->id === 'edit-page')) {
+            echo '<p><strong>ページテンプレート状況:</strong></p>';
+            echo '<ul>';
+            
+            // WordPressのテンプレート検出を試行
+            $page_templates = wp_get_theme()->get_page_templates();
+            echo '<li>WordPressが検出したテンプレート数: ' . count($page_templates) . '</li>';
+            
+            $our_templates_found = 0;
+            foreach ($pdf_templates as $file => $name) {
+                if (isset($page_templates[$file])) {
+                    $our_templates_found++;
+                }
+            }
+            echo '<li>我々のテンプレートの検出数: ' . $our_templates_found . '</li>';
+            
+            if ($our_templates_found === 0) {
+                echo '<li style="color: red;">⚠️ テンプレートが検出されていません。ブラウザをリフレッシュしてください。</li>';
+            }
+            echo '</ul>';
+        }
+        
         echo '</div>';
     }
 });
@@ -160,10 +205,24 @@ add_action('add_meta_boxes', function() {
 
 // ページでテンプレート選択を有効にする
 add_filter('theme_page_templates', function($templates) {
+    error_log('theme_page_templates filter called');
+    
     $pdf_templates = pdf_booklet_get_supported_templates();
+    error_log('PDF templates to register: ' . print_r($pdf_templates, true));
+    
     foreach ($pdf_templates as $file => $name) {
         $templates[$file] = 'PDF Booklet: ' . $name;
+        
+        // ファイルが実際に存在するかチェック
+        $file_path = get_stylesheet_directory() . '/' . $file;
+        if (!file_exists($file_path)) {
+            error_log('Template file not found: ' . $file_path);
+        } else {
+            error_log('Template file exists: ' . $file_path);
+        }
     }
+    
+    error_log('Final templates array: ' . print_r($templates, true));
     return $templates;
 });
 
@@ -441,13 +500,79 @@ function render_pdf_manager_page() {
     <?php
 }
 
-// PDFブックレットテンプレート選択用のドロップダウンを追加
-add_filter('theme_page_templates', function($post_templates) {
-    $pdf_templates = pdf_booklet_get_supported_templates();
-    foreach ($pdf_templates as $file => $name) {
-        $post_templates[$file] = 'PDF Booklet: ' . $name;
+// 追加のテンプレート登録方法（フォールバック）
+add_action('init', function() {
+    error_log('Init hook: Registering page templates');
+    
+    // ページテンプレートの直接登録
+    add_filter('theme_page_templates', function($templates) {
+        error_log('Secondary theme_page_templates filter called');
+        
+        // 新しいテンプレートを直接追加
+        $new_templates = [
+            'template-heading-two-columns-text.php'              => 'PDF Booklet: ⑨ 見出し＋左右カラム本文',
+            'template-heading-text-image-1.php'                  => 'PDF Booklet: ⑩ 見出し＋左本文＋右画像キャプション',
+            'template-heading-text-image-2.php'                  => 'PDF Booklet: ⑪ 見出し＋左本文＋右画像キャプション×2',
+            'template-heading-text-image-3-large-medium.php'     => 'PDF Booklet: ⑫ 見出し＋左本文＋右画像キャプション×3（大1中2）',
+            'template-heading-text-image-4-large-small.php'      => 'PDF Booklet: ⑬ 見出し＋左本文＋右画像キャプション×4（大1小3）',
+            'template-heading-text-image-4-medium.php'           => 'PDF Booklet: ⑭ 見出し＋左本文＋右画像キャプション×4（中4）',
+            'template-heading-text-image-5-medium-small.php'     => 'PDF Booklet: ⑮ 見出し＋左本文＋右画像キャプション×5（中2小3）',
+            'template-image-caption-only.php'                    => 'PDF Booklet: ⑯ 画像キャプションのみ',
+            'template-image-caption-3-medium-small.php'          => 'PDF Booklet: ⑰ 画像キャプション×3（中1小2）'
+        ];
+        
+        foreach ($new_templates as $file => $name) {
+            $templates[$file] = $name;
+        }
+        
+        error_log('Templates after secondary registration: ' . print_r($templates, true));
+        return $templates;
+    }, 20); // 優先度を高く設定
+});
+
+// WordPressのページテンプレート検出を強制的にリフレッシュ
+add_action('admin_init', function() {
+    // テンプレートキャッシュをクリア
+    if (function_exists('wp_cache_delete')) {
+        wp_cache_delete('page_templates', 'themes');
+        wp_cache_delete(get_stylesheet(), 'themes');
     }
-    return $post_templates;
+    
+    // オブジェクトキャッシュもクリア
+    if (function_exists('wp_cache_flush')) {
+        wp_cache_flush();
+    }
+    
+    // 管理画面でのテンプレート検出を確実にする
+    if (is_admin() && isset($_GET['post_type']) && $_GET['post_type'] === 'page') {
+        error_log('Admin page detected - forcing template refresh');
+        
+        // 現在のテーマディレクトリを確認
+        $theme_dir = get_stylesheet_directory();
+        error_log('Current theme directory: ' . $theme_dir);
+        
+        // 新しいテンプレートファイルの存在確認
+        $new_template_files = [
+            'template-heading-two-columns-text.php',
+            'template-heading-text-image-1.php',
+            'template-heading-text-image-2.php',
+            'template-heading-text-image-3-large-medium.php',
+            'template-heading-text-image-4-large-small.php',
+            'template-heading-text-image-4-medium.php',
+            'template-heading-text-image-5-medium-small.php',
+            'template-image-caption-only.php',
+            'template-image-caption-3-medium-small.php'
+        ];
+        
+        foreach ($new_template_files as $file) {
+            $full_path = $theme_dir . '/' . $file;
+            if (file_exists($full_path)) {
+                error_log('✓ Template file exists: ' . $file);
+            } else {
+                error_log('✗ Template file missing: ' . $file . ' (expected at: ' . $full_path . ')');
+            }
+        }
+    }
 });
 
 

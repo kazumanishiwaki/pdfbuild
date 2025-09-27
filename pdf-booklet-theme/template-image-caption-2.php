@@ -1,6 +1,6 @@
 <?php
 /**
- * Template Name: PDF Booklet: ⑨ 画像キャプション×2
+ * Template Name: ⑨ 画像キャプション×2
  * Description: 画像キャプション2つを含むPDFブックレットテンプレート
  */
 

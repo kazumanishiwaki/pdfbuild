@@ -1,6 +1,6 @@
 <?php
 /**
- * Template Name: PDF Booklet: ③ 見出し＋左本文＋右画像キャプション×2
+ * Template Name: ③ 見出し＋左本文＋右画像キャプション×2
  * Description: 見出し、左カラム本文、右カラム画像キャプション2つを含むPDFブックレットテンプレート
  */
 

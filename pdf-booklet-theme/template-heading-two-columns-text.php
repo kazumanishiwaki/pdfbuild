@@ -1,6 +1,6 @@
 <?php
 /**
- * Template Name: PDF Booklet: ① 見出し＋左右カラム本文
+ * Template Name: ① 見出し＋左右カラム本文
  * Description: 見出しと左右2カラムの本文を含むPDFブックレットテンプレート
  */
 
