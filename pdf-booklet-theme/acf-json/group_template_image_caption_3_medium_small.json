@@ -1,0 +1,154 @@
+{
+    "key": "group_template_image_caption_3_medium_small",
+    "title": "⑩ 画像キャプション×3（中1小2）",
+    "fields": [
+        {
+            "key": "field_image_caption_3_medium_small_image_medium",
+            "label": "画像（中）",
+            "name": "image_medium",
+            "type": "image",
+            "instructions": "PDFに表示する中サイズの画像を選択してください",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "return_format": "array",
+            "preview_size": "medium",
+            "library": "all",
+            "min_width": "",
+            "min_height": "",
+            "min_size": "",
+            "max_width": "",
+            "max_height": "",
+            "max_size": "",
+            "mime_types": "jpg,jpeg,png,gif,webp"
+        },
+        {
+            "key": "field_image_caption_3_medium_small_caption_medium",
+            "label": "キャプション（中）",
+            "name": "caption_medium",
+            "type": "textarea",
+            "instructions": "中サイズ画像の説明文を入力してください",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "中画像のキャプションを入力",
+            "maxlength": "",
+            "rows": 3,
+            "new_lines": "br"
+        },
+        {
+            "key": "field_image_caption_3_medium_small_image_small_1",
+            "label": "画像（小）1",
+            "name": "image_small_1",
+            "type": "image",
+            "instructions": "PDFに表示する小サイズの画像1を選択してください",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "return_format": "array",
+            "preview_size": "medium",
+            "library": "all",
+            "min_width": "",
+            "min_height": "",
+            "min_size": "",
+            "max_width": "",
+            "max_height": "",
+            "max_size": "",
+            "mime_types": "jpg,jpeg,png,gif,webp"
+        },
+        {
+            "key": "field_image_caption_3_medium_small_caption_small_1",
+            "label": "キャプション（小）1",
+            "name": "caption_small_1",
+            "type": "textarea",
+            "instructions": "小サイズ画像1の説明文を入力してください",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "小画像1のキャプションを入力",
+            "maxlength": "",
+            "rows": 3,
+            "new_lines": "br"
+        },
+        {
+            "key": "field_image_caption_3_medium_small_image_small_2",
+            "label": "画像（小）2",
+            "name": "image_small_2",
+            "type": "image",
+            "instructions": "PDFに表示する小サイズの画像2を選択してください",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "return_format": "array",
+            "preview_size": "medium",
+            "library": "all",
+            "min_width": "",
+            "min_height": "",
+            "min_size": "",
+            "max_width": "",
+            "max_height": "",
+            "max_size": "",
+            "mime_types": "jpg,jpeg,png,gif,webp"
+        },
+        {
+            "key": "field_image_caption_3_medium_small_caption_small_2",
+            "label": "キャプション（小）2",
+            "name": "caption_small_2",
+            "type": "textarea",
+            "instructions": "小サイズ画像2の説明文を入力してください",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "小画像2のキャプションを入力",
+            "maxlength": "",
+            "rows": 3,
+            "new_lines": "br"
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "page_template",
+                "operator": "==",
+                "value": "template-image-caption-3-medium-small.php"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": [
+        "the_content"
+    ],
+    "active": true,
+    "description": ""
+}

@@ -1,56 +1,51 @@
 {
-    "key": "group_template_image_caption_2",
-    "title": "⑨ 画像キャプション×2",
+    "key": "group_template_heading_text_image_1",
+    "title": "② 見出し＋左本文＋右画像キャプション",
     "fields": [
         {
-            "key": "field_image_caption_2_image_1",
-            "label": "画像1",
-            "name": "image_1",
-            "type": "image",
-            "instructions": "PDFに表示する1つ目の画像を選択してください",
+            "key": "field_heading_text_image_1_heading",
+            "label": "見出し",
+            "name": "heading",
+            "type": "text",
+            "instructions": "PDFに表示される見出しを入力してください",
             "required": 1,
             "conditional_logic": 0,
             "wrapper": {
-                "width": "50",
-                "class": "",
-                "id": ""
-            },
-            "return_format": "array",
-            "preview_size": "medium",
-            "library": "all",
-            "min_width": "",
-            "min_height": "",
-            "min_size": "",
-            "max_width": "",
-            "max_height": "",
-            "max_size": "",
-            "mime_types": "jpg,jpeg,png,gif,webp"
-        },
-        {
-            "key": "field_image_caption_2_caption_1",
-            "label": "キャプション1",
-            "name": "caption_1",
-            "type": "textarea",
-            "instructions": "画像1の説明文を入力してください",
-            "required": 0,
-            "conditional_logic": 0,
-            "wrapper": {
-                "width": "50",
+                "width": "",
                 "class": "",
                 "id": ""
             },
             "default_value": "",
-            "placeholder": "キャプション1を入力",
-            "maxlength": "",
-            "rows": 3,
+            "placeholder": "見出しを入力",
+            "prepend": "",
+            "append": "",
+            "maxlength": ""
+        },
+        {
+            "key": "field_heading_text_image_1_left_content",
+            "label": "左カラム本文（32文字×18行）",
+            "name": "left_content",
+            "type": "textarea",
+            "instructions": "左カラムに表示される本文を入力してください（32文字×18行目安）",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "左カラムの本文を入力",
+            "maxlength": 576,
+            "rows": 18,
             "new_lines": "br"
         },
         {
-            "key": "field_image_caption_2_image_2",
-            "label": "画像2",
-            "name": "image_2",
+            "key": "field_heading_text_image_1_image",
+            "label": "画像",
+            "name": "image",
             "type": "image",
-            "instructions": "PDFに表示する2つ目の画像を選択してください",
+            "instructions": "右カラムに表示する画像を選択してください",
             "required": 1,
             "conditional_logic": 0,
             "wrapper": {
@@ -70,11 +65,11 @@
             "mime_types": "jpg,jpeg,png,gif,webp"
         },
         {
-            "key": "field_image_caption_2_caption_2",
-            "label": "キャプション2",
-            "name": "caption_2",
+            "key": "field_heading_text_image_1_caption",
+            "label": "キャプション",
+            "name": "caption",
             "type": "textarea",
-            "instructions": "画像2の説明文を入力してください",
+            "instructions": "画像の説明文を入力してください",
             "required": 0,
             "conditional_logic": 0,
             "wrapper": {
@@ -83,7 +78,7 @@
                 "id": ""
             },
             "default_value": "",
-            "placeholder": "キャプション2を入力",
+            "placeholder": "キャプションを入力",
             "maxlength": "",
             "rows": 3,
             "new_lines": "br"
@@ -94,7 +89,7 @@
             {
                 "param": "page_template",
                 "operator": "==",
-                "value": "template-image-caption-2.php"
+                "value": "template-heading-text-image-1.php"
             }
         ]
     ],

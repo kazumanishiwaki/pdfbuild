@@ -1,0 +1,82 @@
+{
+    "key": "group_template_heading_two_columns_text",
+    "title": "① 見出し＋左右カラム本文",
+    "fields": [
+        {
+            "key": "field_heading_two_columns_text_heading",
+            "label": "見出し",
+            "name": "heading",
+            "type": "text",
+            "instructions": "PDFに表示される見出しを入力してください",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "見出しを入力",
+            "prepend": "",
+            "append": "",
+            "maxlength": ""
+        },
+        {
+            "key": "field_heading_two_columns_text_left_content",
+            "label": "左カラム本文（32文字×18行）",
+            "name": "left_content",
+            "type": "textarea",
+            "instructions": "左カラムに表示される本文を入力してください（32文字×18行目安）",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "左カラムの本文を入力",
+            "maxlength": 576,
+            "rows": 18,
+            "new_lines": "br"
+        },
+        {
+            "key": "field_heading_two_columns_text_right_content",
+            "label": "右カラム本文（32文字×18行）",
+            "name": "right_content",
+            "type": "textarea",
+            "instructions": "右カラムに表示される本文を入力してください（32文字×18行目安）",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "右カラムの本文を入力",
+            "maxlength": 576,
+            "rows": 18,
+            "new_lines": "br"
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "page_template",
+                "operator": "==",
+                "value": "template-heading-two-columns-text.php"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": [
+        "the_content"
+    ],
+    "active": true,
+    "description": ""
+}

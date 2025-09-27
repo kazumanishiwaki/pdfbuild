@@ -1,9 +1,10 @@
 <?php
 /**
- * Template Name: PDF Booklet: ⑤ （画像＋キャプション）×２
- * Description: 2つの画像とキャプションを含むPDFブックレットテンプレート
+ * Template Name: PDF Booklet: ⑨ 画像キャプション×2
+ * Description: 画像キャプション2つを含むPDFブックレットテンプレート
  */
 
+// テンプレートファイルとして機能するための基本構造
 get_header(); ?>
 
 <div class="pdf-booklet-template template-image-caption-2">
@@ -17,26 +18,39 @@ get_header(); ?>
                 <div class="entry-content">
                     <?php if (function_exists('get_field')): ?>
                         <?php 
-                        $images = [
-                            ['image' => get_field('image_1'), 'caption' => get_field('caption_1')],
-                            ['image' => get_field('image_2'), 'caption' => get_field('caption_2')]
-                        ];
+                        $image_1 = get_field('image_1');
+                        $caption_1 = get_field('caption_1');
+                        $image_2 = get_field('image_2');
+                        $caption_2 = get_field('caption_2');
                         ?>
                         
-                        <?php foreach ($images as $index => $item): ?>
-                            <?php if ($item['image']): ?>
-                                <div class="pdf-image-block image-<?php echo $index + 1; ?>">
-                                    <img src="<?php echo esc_url($item['image']['url']); ?>" 
-                                         alt="<?php echo esc_attr($item['image']['alt']); ?>" 
+                        <div class="pdf-image-grid pdf-image-grid-2-only">
+                            <?php if ($image_1): ?>
+                                <div class="pdf-image-block">
+                                    <img src="<?php echo esc_url($image_1['url']); ?>" 
+                                         alt="<?php echo esc_attr($image_1['alt']); ?>" 
                                          class="pdf-image" />
-                                    <?php if ($item['caption']): ?>
+                                    <?php if ($caption_1): ?>
                                         <div class="pdf-caption">
-                                            <?php echo wp_kses_post(nl2br($item['caption'])); ?>
+                                            <?php echo wp_kses_post(nl2br($caption_1)); ?>
                                         </div>
                                     <?php endif; ?>
                                 </div>
                             <?php endif; ?>
-                        <?php endforeach; ?>
+                            
+                            <?php if ($image_2): ?>
+                                <div class="pdf-image-block">
+                                    <img src="<?php echo esc_url($image_2['url']); ?>" 
+                                         alt="<?php echo esc_attr($image_2['alt']); ?>" 
+                                         class="pdf-image" />
+                                    <?php if ($caption_2): ?>
+                                        <div class="pdf-caption">
+                                            <?php echo wp_kses_post(nl2br($caption_2)); ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
                         
                     <?php else: ?>
                         <p>ACFプラグインが必要です。</p>

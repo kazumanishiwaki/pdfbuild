@@ -1,0 +1,278 @@
+{
+    "key": "group_template_heading_text_image_5_medium_small",
+    "title": "⑦ 見出し＋左本文＋右画像キャプション×5（中2小3）",
+    "fields": [
+        {
+            "key": "field_heading_text_image_5_medium_small_heading",
+            "label": "見出し",
+            "name": "heading",
+            "type": "text",
+            "instructions": "PDFに表示される見出しを入力してください",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "見出しを入力",
+            "prepend": "",
+            "append": "",
+            "maxlength": ""
+        },
+        {
+            "key": "field_heading_text_image_5_medium_small_left_content",
+            "label": "左カラム本文（32文字×18行）",
+            "name": "left_content",
+            "type": "textarea",
+            "instructions": "左カラムに表示される本文を入力してください（32文字×18行目安）",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "左カラムの本文を入力",
+            "maxlength": 576,
+            "rows": 18,
+            "new_lines": "br"
+        },
+        {
+            "key": "field_heading_text_image_5_medium_small_image_medium_1",
+            "label": "画像（中）1",
+            "name": "image_medium_1",
+            "type": "image",
+            "instructions": "右カラムに表示する中サイズの画像1を選択してください",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "return_format": "array",
+            "preview_size": "medium",
+            "library": "all",
+            "min_width": "",
+            "min_height": "",
+            "min_size": "",
+            "max_width": "",
+            "max_height": "",
+            "max_size": "",
+            "mime_types": "jpg,jpeg,png,gif,webp"
+        },
+        {
+            "key": "field_heading_text_image_5_medium_small_caption_medium_1",
+            "label": "キャプション（中）1",
+            "name": "caption_medium_1",
+            "type": "textarea",
+            "instructions": "中サイズ画像1の説明文を入力してください",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "中画像1のキャプションを入力",
+            "maxlength": "",
+            "rows": 3,
+            "new_lines": "br"
+        },
+        {
+            "key": "field_heading_text_image_5_medium_small_image_medium_2",
+            "label": "画像（中）2",
+            "name": "image_medium_2",
+            "type": "image",
+            "instructions": "右カラムに表示する中サイズの画像2を選択してください",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "return_format": "array",
+            "preview_size": "medium",
+            "library": "all",
+            "min_width": "",
+            "min_height": "",
+            "min_size": "",
+            "max_width": "",
+            "max_height": "",
+            "max_size": "",
+            "mime_types": "jpg,jpeg,png,gif,webp"
+        },
+        {
+            "key": "field_heading_text_image_5_medium_small_caption_medium_2",
+            "label": "キャプション（中）2",
+            "name": "caption_medium_2",
+            "type": "textarea",
+            "instructions": "中サイズ画像2の説明文を入力してください",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "中画像2のキャプションを入力",
+            "maxlength": "",
+            "rows": 3,
+            "new_lines": "br"
+        },
+        {
+            "key": "field_heading_text_image_5_medium_small_image_small_1",
+            "label": "画像（小）1",
+            "name": "image_small_1",
+            "type": "image",
+            "instructions": "右カラムに表示する小サイズの画像1を選択してください",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "33.33",
+                "class": "",
+                "id": ""
+            },
+            "return_format": "array",
+            "preview_size": "medium",
+            "library": "all",
+            "min_width": "",
+            "min_height": "",
+            "min_size": "",
+            "max_width": "",
+            "max_height": "",
+            "max_size": "",
+            "mime_types": "jpg,jpeg,png,gif,webp"
+        },
+        {
+            "key": "field_heading_text_image_5_medium_small_caption_small_1",
+            "label": "キャプション（小）1",
+            "name": "caption_small_1",
+            "type": "textarea",
+            "instructions": "小サイズ画像1の説明文を入力してください",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "33.33",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "小画像1のキャプションを入力",
+            "maxlength": "",
+            "rows": 3,
+            "new_lines": "br"
+        },
+        {
+            "key": "field_heading_text_image_5_medium_small_image_small_2",
+            "label": "画像（小）2",
+            "name": "image_small_2",
+            "type": "image",
+            "instructions": "右カラムに表示する小サイズの画像2を選択してください",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "33.33",
+                "class": "",
+                "id": ""
+            },
+            "return_format": "array",
+            "preview_size": "medium",
+            "library": "all",
+            "min_width": "",
+            "min_height": "",
+            "min_size": "",
+            "max_width": "",
+            "max_height": "",
+            "max_size": "",
+            "mime_types": "jpg,jpeg,png,gif,webp"
+        },
+        {
+            "key": "field_heading_text_image_5_medium_small_caption_small_2",
+            "label": "キャプション（小）2",
+            "name": "caption_small_2",
+            "type": "textarea",
+            "instructions": "小サイズ画像2の説明文を入力してください",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "33.33",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "小画像2のキャプションを入力",
+            "maxlength": "",
+            "rows": 3,
+            "new_lines": "br"
+        },
+        {
+            "key": "field_heading_text_image_5_medium_small_image_small_3",
+            "label": "画像（小）3",
+            "name": "image_small_3",
+            "type": "image",
+            "instructions": "右カラムに表示する小サイズの画像3を選択してください",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "33.33",
+                "class": "",
+                "id": ""
+            },
+            "return_format": "array",
+            "preview_size": "medium",
+            "library": "all",
+            "min_width": "",
+            "min_height": "",
+            "min_size": "",
+            "max_width": "",
+            "max_height": "",
+            "max_size": "",
+            "mime_types": "jpg,jpeg,png,gif,webp"
+        },
+        {
+            "key": "field_heading_text_image_5_medium_small_caption_small_3",
+            "label": "キャプション（小）3",
+            "name": "caption_small_3",
+            "type": "textarea",
+            "instructions": "小サイズ画像3の説明文を入力してください",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "33.33",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "小画像3のキャプションを入力",
+            "maxlength": "",
+            "rows": 3,
+            "new_lines": "br"
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "page_template",
+                "operator": "==",
+                "value": "template-heading-text-image-5-medium-small.php"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": [
+        "the_content"
+    ],
+    "active": true,
+    "description": ""
+}
