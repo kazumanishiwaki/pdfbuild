@@ -296,20 +296,22 @@ jobs:
                 filename=$(basename "$pdf_file")
                 echo "📤 Uploading: $filename"
                 
-                # FTPコマンドを使用して個別ファイルをアップロード
-                ftp -n "$FTP_SERVER" << EOF
-user $FTP_USERNAME $FTP_PASSWORD
-binary
-cd $FTP_TARGET_DIR
-put $pdf_file $filename
-quit
-EOF
+                # FTPスクリプトファイルを作成
+                echo "user $FTP_USERNAME $FTP_PASSWORD" > ftp_script.txt
+                echo "binary" >> ftp_script.txt
+                echo "cd $FTP_TARGET_DIR" >> ftp_script.txt
+                echo "put $pdf_file $filename" >> ftp_script.txt
+                echo "quit" >> ftp_script.txt
                 
-                if [ $? -eq 0 ]; then
+                # FTPコマンドを実行
+                if ftp -n "$FTP_SERVER" < ftp_script.txt; then
                   echo "✅ Successfully uploaded: $filename"
                 else
                   echo "❌ Failed to upload: $filename"
                 fi
+                
+                # 一時ファイルを削除
+                rm -f ftp_script.txt
               fi
             done
           else
