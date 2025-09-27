@@ -208,7 +208,7 @@ function generateTimeline(title, items) {
   `;
 }
 
-function renderHTML(data, spread = false) {
+function renderHTML(data, spread = false, nextPageData = null) {
   const title = htmlEscape(data.title || 'Untitled');
   const template = data.template || 'text-photo2';
   
@@ -305,47 +305,76 @@ function renderHTML(data, spread = false) {
         display: flex;
         width: 100%;
         height: 100vh;
-        gap: 20mm;
+        gap: 0;
+        margin: 0;
+        padding: 0;
       }
       .spread-page {
         flex: 1;
-        width: calc(50% - 10mm);
-        padding: 15mm;
-        border-right: 1px solid #ddd;
+        width: 50%;
+        padding: 12mm;
+        box-sizing: border-box;
+        border-right: 2px solid #e0e0e0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
       }
       .spread-page:last-child {
         border-right: none;
+        border-left: 2px solid #e0e0e0;
       }
       .spread-page h1 {
-        font-size: 24px;
-        margin: 0 0 10px;
+        font-size: 20px;
+        margin: 0 0 8px;
+        font-weight: 600;
       }
       .spread-page h2 {
-        font-size: 20px;
-        margin: 15px 0 8px;
+        font-size: 18px;
+        margin: 12px 0 6px;
+        font-weight: 500;
       }
       .spread-page h3 {
-        font-size: 16px;
-        margin: 12px 0 6px;
+        font-size: 14px;
+        margin: 10px 0 4px;
+        font-weight: 500;
       }
       .spread-page p {
-        font-size: 12px;
-        line-height: 1.7;
-        margin: 0 0 12px;
+        font-size: 11px;
+        line-height: 1.6;
+        margin: 0 0 10px;
       }
       .spread-page img {
-        max-height: 200px;
+        max-width: 100%;
+        max-height: 180px;
+        object-fit: contain;
       }
       .spread-page .grid {
         grid-template-columns: 1fr;
-        gap: 10px;
+        gap: 8px;
+      }
+      .spread-page .image-grid-2 {
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
       }
       .spread-page .image-grid-3 {
         grid-template-columns: 1fr 1fr;
-        gap: 8px;
+        gap: 6px;
       }
       .spread-page figcaption {
+        font-size: 9px;
+        margin-top: 4px;
+      }
+      .spread-page .timestamp {
+        font-size: 9px;
+        color: #888;
+        margin-bottom: 8px;
+      }
+      .spread-page .timeline-table {
         font-size: 10px;
+      }
+      .spread-page .timeline-table th,
+      .spread-page .timeline-table td {
+        padding: 3px 6px;
       }
       ` : ''}
     </style>
@@ -359,9 +388,15 @@ function renderHTML(data, spread = false) {
         ${generateTemplateContent(data, template)}
       </div>
       <div class="spread-page">
+        ${nextPageData ? `
         <div class="timestamp">最終更新: ${jstTimestamp}</div>
-        <h1>${title}</h1>
-        ${generateTemplateContent(data, template)}
+        <h1>${htmlEscape(nextPageData.title || 'Untitled')}</h1>
+        ${generateTemplateContent(nextPageData, nextPageData.template || 'text-photo2')}
+        ` : `
+        <div class="timestamp">最終更新: ${jstTimestamp}</div>
+        <h1>次のページがありません</h1>
+        <p>このページは見開きの右ページですが、対応する次のページが見つかりませんでした。</p>
+        `}
       </div>
     </div>
     ` : `
@@ -472,11 +507,25 @@ async function main() {
   const raw = fs.readFileSync(json, 'utf-8');
   const data = JSON.parse(raw);
   
-  // 見開きモードのログ出力
+  // 見開きモードの場合、次のページのデータも読み込む
+  let nextPageData = null;
   if (spread) {
     console.log('📖 Spread mode enabled');
     if (suffix) {
       console.log(`📝 Output suffix: ${suffix}`);
+    }
+    
+    // 現在のページIDから次のページIDを計算
+    const currentPageId = parseInt(data.id);
+    const nextPageId = currentPageId + 1;
+    const nextJsonPath = json.replace(`content-${currentPageId}.json`, `content-${nextPageId}.json`);
+    
+    if (fs.existsSync(nextJsonPath)) {
+      const nextRaw = fs.readFileSync(nextJsonPath, 'utf-8');
+      nextPageData = JSON.parse(nextRaw);
+      console.log(`📄 Next page loaded: ${nextPageId}`);
+    } else {
+      console.log(`⚠️ Next page not found: ${nextJsonPath}`);
     }
   }
   
@@ -489,7 +538,7 @@ async function main() {
   }
 
   ensureDir(out);
-  const html = renderHTML(data, spread);
+  const html = renderHTML(data, spread, nextPageData);
   const htmlPath = path.resolve(out, `booklet-${filename}.html`);
   const pdfPath = path.resolve(out, `booklet-${filename}.pdf`);
   fs.writeFileSync(htmlPath, html);
