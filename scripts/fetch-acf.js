@@ -459,6 +459,10 @@ async function main() {
       }
       
       const page = await fetchPage(id, WP_URL, headers);
+      if (!page || !page.id) {
+        console.log(`⚠️ Page ${id} not found or invalid, skipping...`);
+        continue;
+      }
       const slug = page.slug || String(id);
       console.log(`✅ Page fetched: ${slug} (ID: ${id})`);
       
@@ -527,9 +531,13 @@ async function main() {
       console.log(`✅ Page fetched: ${slug} (ID: ${id})`);
       wroteAny = true;
     } catch (e) {
-      console.error(`❌ Error fetching id=${id}:`, e.message);
-      if (e.status) console.error(`❌ HTTP Status: ${e.status}`);
-      if (e.body) console.error(`❌ Response: ${e.body.slice(0, 500)}`);
+      if (e.status === 404) {
+        console.log(`⚠️ Page ${id} not found (404), skipping...`);
+      } else {
+        console.error(`❌ Error fetching id=${id}:`, e.message);
+        if (e.status) console.error(`❌ HTTP Status: ${e.status}`);
+        if (e.body) console.error(`❌ Response: ${e.body.slice(0, 500)}`);
+      }
     }
   }
 

@@ -189,12 +189,38 @@ jobs:
           
           test -f scripts/fetch-acf.js
           
-          # 見開きモードでも基本的には指定されたページのみ取得
+          # 見開きモードでは隣接ページも取得
           FETCH_PAGE_IDS="$WP_PAGE_IDS"
           if [ "${SPREAD_MODE:-false}" = "true" ]; then
-            echo "📖 Spread mode: fetching only specified pages to prevent loops"
-            echo "📝 Adjacent pages will be handled by build-one.js if available"
-            echo "📋 Page IDs to fetch: $FETCH_PAGE_IDS"
+            echo "📖 Spread mode: expanding page IDs to include adjacent pages"
+            
+            # 簡単な方法：指定されたページIDに基づいて隣接ページIDを推測
+            EXPANDED_IDS=""
+            for page_id in $(echo "$WP_PAGE_IDS" | tr ',' ' '); do
+              echo "🔍 Processing page ID: $page_id"
+              
+              # 現在のページIDを追加
+              if [ -z "$EXPANDED_IDS" ]; then
+                EXPANDED_IDS="$page_id"
+              else
+                EXPANDED_IDS="$EXPANDED_IDS,$page_id"
+              fi
+              
+              # 隣接ページIDを推測（±1, ±2, ±3の範囲で検索）
+              echo "📄 Adding potential adjacent pages for page $page_id..."
+              for offset in -3 -2 -1 1 2 3; do
+                adjacent_id=$((page_id + offset))
+                if [ $adjacent_id -gt 0 ]; then
+                  EXPANDED_IDS="$EXPANDED_IDS,$adjacent_id"
+                  echo "   + Page ID $adjacent_id (offset: $offset)"
+                fi
+              done
+            done
+            
+            # 重複を除去
+            FETCH_PAGE_IDS=$(echo "$EXPANDED_IDS" | tr ',' '\n' | sort -u -n | tr '\n' ',' | sed 's/,$//')
+            echo "📋 Expanded page IDs: $FETCH_PAGE_IDS"
+            echo "📝 Note: fetch-acf.js will filter out non-existent pages"
           fi
           
           # fetch-acf.jsの実行（詳細ログ付き）
