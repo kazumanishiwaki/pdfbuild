@@ -636,6 +636,8 @@ function render_pdf_manager_page() {
                             
                             <?php if ($spread_exists): ?>
                                 <a href="<?php echo esc_url($spread_url); ?>" target="_blank" class="button button-small button-primary">見開き表示</a>
+                                <button type="button" class="button button-small regenerate-spread-pdf" data-page-id="<?php echo esc_attr($related_page_id); ?>" data-filename="<?php echo esc_attr($filename); ?>" style="margin-left: 5px;">見開きPDF再生成</button>
+                                <button type="button" class="button button-small button-link-delete delete-spread-pdf" data-spread-file="<?php echo esc_attr($spread_filename); ?>" style="margin-left: 5px;">見開きPDF削除</button>
                             <?php else: ?>
                                 <button type="button" class="button button-small generate-spread-pdf" data-page-id="<?php echo esc_attr($related_page_id); ?>" data-filename="<?php echo esc_attr($filename); ?>">見開きPDF生成</button>
                             <?php endif; ?>
@@ -697,6 +699,82 @@ function render_pdf_manager_page() {
                 },
                 complete: function() {
                     button.prop('disabled', false).text('見開きPDF生成');
+                }
+            });
+        });
+        
+        // 見開きPDF再生成ボタンのクリックイベント
+        $('.regenerate-spread-pdf').on('click', function() {
+            var pageId = $(this).data('page-id');
+            var filename = $(this).data('filename');
+            var button = $(this);
+            
+            if (!confirm('見開きPDFを再生成しますか？完了まで数分かかる場合があります。')) {
+                return;
+            }
+            
+            button.prop('disabled', true).text('再生成中...');
+            
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'generate_spread_pdf',
+                    page_id: pageId,
+                    filename: filename,
+                    nonce: '<?php echo wp_create_nonce('pdf_booklet_spread'); ?>'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        alert('見開きPDF再生成を開始しました。完了まで数分かかる場合があります。');
+                        setTimeout(function() {
+                            location.reload();
+                        }, 10000);
+                    } else {
+                        alert('エラー: ' + response.data);
+                    }
+                },
+                error: function() {
+                    alert('通信エラーが発生しました。');
+                },
+                complete: function() {
+                    button.prop('disabled', false).text('見開きPDF再生成');
+                }
+            });
+        });
+        
+        // 見開きPDF削除ボタンのクリックイベント
+        $('.delete-spread-pdf').on('click', function() {
+            var spreadFile = $(this).data('spread-file');
+            var button = $(this);
+            
+            if (!confirm('見開きPDFファイルを削除しますか？')) {
+                return;
+            }
+            
+            button.prop('disabled', true).text('削除中...');
+            
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'delete_spread_pdf',
+                    spread_file: spreadFile,
+                    nonce: '<?php echo wp_create_nonce('pdf_booklet_spread'); ?>'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        alert('見開きPDFファイルを削除しました。');
+                        location.reload();
+                    } else {
+                        alert('エラー: ' + response.data);
+                    }
+                },
+                error: function() {
+                    alert('通信エラーが発生しました。');
+                },
+                complete: function() {
+                    button.prop('disabled', false).text('見開きPDF削除');
                 }
             });
         });
@@ -1195,6 +1273,12 @@ add_action('edit_form_after_title', function($post) {
                 <a href="<?php echo esc_url($spread_pdf_url); ?>" target="_blank" class="button button-secondary" style="margin-left: 5px;">
                     見開き表示
                 </a>
+                <button type="button" class="button button-secondary regenerate-spread-pdf-single" data-page-id="<?php echo $post->ID; ?>" style="margin-left: 5px;">
+                    見開きPDF再生成
+                </button>
+                <button type="button" class="button button-link-delete delete-spread-pdf-single" data-page-id="<?php echo $post->ID; ?>" style="margin-left: 5px;">
+                    見開きPDF削除
+                </button>
                 <?php else: ?>
                 <button type="button" class="button button-secondary generate-spread-pdf-single" data-page-id="<?php echo $post->ID; ?>" style="margin-left: 5px;">
                     見開きPDF生成
@@ -1332,6 +1416,81 @@ add_action('edit_form_after_title', function($post) {
                 }
             });
         });
+        
+        // 見開きPDF再生成ボタン（単体）
+        $('.regenerate-spread-pdf-single').on('click', function() {
+            var pageId = $(this).data('page-id');
+            var button = $(this);
+            
+            if (!confirm('見開きPDFを再生成しますか？完了まで数分かかる場合があります。')) {
+                return;
+            }
+            
+            button.prop('disabled', true).text('再生成中...');
+            
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'generate_spread_pdf',
+                    page_id: pageId,
+                    filename: 'booklet-' + pageId + '.pdf',
+                    nonce: '<?php echo wp_create_nonce('pdf_booklet_spread'); ?>'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        alert('見開きPDF再生成を開始しました。完了まで数分かかる場合があります。');
+                        setTimeout(function() {
+                            location.reload();
+                        }, 10000);
+                    } else {
+                        alert('エラー: ' + response.data);
+                    }
+                },
+                error: function() {
+                    alert('通信エラーが発生しました。');
+                },
+                complete: function() {
+                    button.prop('disabled', false).text('見開きPDF再生成');
+                }
+            });
+        });
+        
+        // 見開きPDF削除ボタン（単体）
+        $('.delete-spread-pdf-single').on('click', function() {
+            var pageId = $(this).data('page-id');
+            var button = $(this);
+            
+            if (!confirm('見開きPDFファイルを削除しますか？')) {
+                return;
+            }
+            
+            button.prop('disabled', true).text('削除中...');
+            
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'delete_spread_pdf',
+                    spread_file: 'booklet-' + pageId + '-spread.pdf',
+                    nonce: '<?php echo wp_create_nonce('pdf_booklet_spread'); ?>'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        alert('見開きPDFファイルを削除しました。');
+                        location.reload();
+                    } else {
+                        alert('エラー: ' + response.data);
+                    }
+                },
+                error: function() {
+                    alert('通信エラーが発生しました。');
+                },
+                complete: function() {
+                    button.prop('disabled', false).text('見開きPDF削除');
+                }
+            });
+        });
     });
     </script>
     <?php
@@ -1392,6 +1551,30 @@ add_action('wp_ajax_generate_spread_pdf', function() {
         wp_send_json_success('見開きPDF生成を開始しました。');
     } else {
         wp_send_json_error($result['message']);
+    }
+});
+
+// 見開きPDF削除のAJAXハンドラー
+add_action('wp_ajax_delete_spread_pdf', function() {
+    check_ajax_referer('pdf_booklet_spread', 'nonce');
+    
+    $spread_file = sanitize_text_field($_POST['spread_file']);
+    
+    if (!$spread_file) {
+        wp_send_json_error('無効なファイル名です。');
+    }
+    
+    $pdf_dir = wp_upload_dir()['basedir'] . '/pdf-booklet/';
+    $file_path = $pdf_dir . $spread_file;
+    
+    if (!file_exists($file_path)) {
+        wp_send_json_error('ファイルが見つかりません。');
+    }
+    
+    if (unlink($file_path)) {
+        wp_send_json_success('見開きPDFファイルを削除しました。');
+    } else {
+        wp_send_json_error('ファイルの削除に失敗しました。');
     }
 });
 

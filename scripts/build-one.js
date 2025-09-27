@@ -237,8 +237,8 @@ function renderHTML(data, spread = false) {
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
       @page { 
-        size: A4 ${spread ? 'portrait' : 'landscape'}; 
-        margin: ${spread ? '10mm' : '14mm'}; 
+        size: ${spread ? 'A3 landscape' : 'A4 landscape'}; 
+        margin: ${spread ? '8mm' : '14mm'}; 
       }
       body { 
         font-family: 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif; 
@@ -246,7 +246,7 @@ function renderHTML(data, spread = false) {
         line-height: 1.6;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
-        ${spread ? 'font-size: 14px;' : ''}
+        ${spread ? 'font-size: 12px;' : ''}
       }
       h1 { font-size: 28px; margin: 0 0 12px; font-weight: 500; }
       p { line-height: 1.8; margin: 0 0 16px; }
@@ -298,14 +298,79 @@ function renderHTML(data, spread = false) {
         text-align: center; 
       }
       .page { break-after: page; }
+      
+      /* 見開きモード用のスタイル */
+      ${spread ? `
+      .spread-layout {
+        display: flex;
+        width: 100%;
+        height: 100vh;
+        gap: 20mm;
+      }
+      .spread-page {
+        flex: 1;
+        width: calc(50% - 10mm);
+        padding: 15mm;
+        border-right: 1px solid #ddd;
+      }
+      .spread-page:last-child {
+        border-right: none;
+      }
+      .spread-page h1 {
+        font-size: 24px;
+        margin: 0 0 10px;
+      }
+      .spread-page h2 {
+        font-size: 20px;
+        margin: 15px 0 8px;
+      }
+      .spread-page h3 {
+        font-size: 16px;
+        margin: 12px 0 6px;
+      }
+      .spread-page p {
+        font-size: 12px;
+        line-height: 1.7;
+        margin: 0 0 12px;
+      }
+      .spread-page img {
+        max-height: 200px;
+      }
+      .spread-page .grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+      .spread-page .image-grid-3 {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .spread-page figcaption {
+        font-size: 10px;
+      }
+      ` : ''}
     </style>
   </head>
   <body>
+    ${spread ? `
+    <div class="spread-layout">
+      <div class="spread-page">
+        <div class="timestamp">最終更新: ${jstTimestamp}</div>
+        <h1>${title}</h1>
+        ${generateTemplateContent(data, template)}
+      </div>
+      <div class="spread-page">
+        <div class="timestamp">最終更新: ${jstTimestamp}</div>
+        <h1>${title}</h1>
+        ${generateTemplateContent(data, template)}
+      </div>
+    </div>
+    ` : `
     <section class="page">
       <div class="timestamp">最終更新: ${jstTimestamp}</div>
       <h1>${title}</h1>
       ${generateTemplateContent(data, template)}
     </section>
+    `}
   </body>
   </html>`;
 }
