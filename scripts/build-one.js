@@ -20,6 +20,8 @@ function parseArgs() {
     if (a === '--json') opts.json = args[++i];
     else if (a === '--out') opts.out = args[++i];
     else if (a === '--pdf') opts.pdf = true; // force PDF attempt
+    else if (a === '--spread') opts.spread = true; // spread mode
+    else if (a === '--suffix') opts.suffix = args[++i]; // output suffix
   }
   return opts;
 }
@@ -206,7 +208,7 @@ function generateTimeline(title, items) {
   `;
 }
 
-function renderHTML(data) {
+function renderHTML(data, spread = false) {
   const title = htmlEscape(data.title || 'Untitled');
   const template = data.template || 'text-photo2';
   
@@ -234,13 +236,17 @@ function renderHTML(data) {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-      @page { size: A4 landscape; margin: 14mm; }
+      @page { 
+        size: A4 ${spread ? 'portrait' : 'landscape'}; 
+        margin: ${spread ? '10mm' : '14mm'}; 
+      }
       body { 
         font-family: 'Noto Sans JP', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif; 
         color: #111; 
         line-height: 1.6;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
+        ${spread ? 'font-size: 14px;' : ''}
       }
       h1 { font-size: 28px; margin: 0 0 12px; font-weight: 500; }
       p { line-height: 1.8; margin: 0 0 16px; }
@@ -304,7 +310,7 @@ function renderHTML(data) {
   </html>`;
 }
 
-async function maybeCreatePDF(htmlPath, pdfPath, force = false) {
+async function maybeCreatePDF(htmlPath, pdfPath, force = false, spread = false) {
   let puppeteer;
   try {
     puppeteer = await import('puppeteer');
@@ -359,15 +365,23 @@ async function maybeCreatePDF(htmlPath, pdfPath, force = false) {
       
       console.log('✅ Page loaded successfully, generating PDF...');
       
-      // PDF生成
-      await page.pdf({ 
+      // PDF生成（見開きモード対応）
+      const pdfOptions = {
         path: pdfPath, 
         format: 'A4', 
-        landscape: true, 
+        landscape: !spread, // 見開きモードでは縦向き
         printBackground: true, 
-        margin: { top: 14, right: 14, bottom: 14, left: 14 },
+        margin: spread ? 
+          { top: 10, right: 10, bottom: 10, left: 10 } : 
+          { top: 14, right: 14, bottom: 14, left: 14 },
         preferCSSPageSize: true
-      });
+      };
+      
+      if (spread) {
+        console.log('📖 Generating spread PDF in portrait mode');
+      }
+      
+      await page.pdf(pdfOptions);
       console.log('📄 PDF generated:', pdfPath);
       
     } catch (pageError) {
@@ -385,24 +399,38 @@ async function maybeCreatePDF(htmlPath, pdfPath, force = false) {
 }
 
 async function main() {
-  const { json, out = 'out', pdf: forcePdf } = parseArgs();
+  const { json, out = 'out', pdf: forcePdf, spread, suffix } = parseArgs();
   if (!json) {
-    console.error('Usage: node scripts/build-one.js --json <content-json> [--out out] [--pdf]');
+    console.error('Usage: node scripts/build-one.js --json <content-json> [--out out] [--pdf] [--spread] [--suffix <suffix>]');
     process.exit(1);
   }
   const raw = fs.readFileSync(json, 'utf-8');
   const data = JSON.parse(raw);
+  
+  // 見開きモードのログ出力
+  if (spread) {
+    console.log('📖 Spread mode enabled');
+    if (suffix) {
+      console.log(`📝 Output suffix: ${suffix}`);
+    }
+  }
+  
   // ファイル名はID名を使用（日本語エンコード問題を回避）
-  const filename = String(data.id || data.slug || 'page');
+  let filename = String(data.id || data.slug || 'page');
+  
+  // 見開きモード用のサフィックスを追加
+  if (spread && suffix) {
+    filename += suffix;
+  }
 
   ensureDir(out);
-  const html = renderHTML(data);
+  const html = renderHTML(data, spread);
   const htmlPath = path.resolve(out, `booklet-${filename}.html`);
   const pdfPath = path.resolve(out, `booklet-${filename}.pdf`);
   fs.writeFileSync(htmlPath, html);
   console.log('📝 HTML generated:', htmlPath);
 
-  await maybeCreatePDF(htmlPath, pdfPath, !!forcePdf);
+  await maybeCreatePDF(htmlPath, pdfPath, !!forcePdf, spread);
 }
 
 main().catch((e) => {
