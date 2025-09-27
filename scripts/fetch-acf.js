@@ -460,7 +460,7 @@ async function main() {
         title: acf.title || page.title?.rendered || slug,
         modified: page.modified || page.date || new Date().toISOString(),
         // 共通フィールド（PDFには出力しない）
-        pdf_page_number: acf.pdf_page_number || null
+        pdf_page_number: acf.pdf_page_number || parseInt(id) // フォールバック：IDを使用
       };
 
       // テンプレート別フィールド処理
@@ -469,6 +469,8 @@ async function main() {
       await enrichImages(content, WP_URL, headers);
       
       // デバッグ: 生成されたコンテンツの詳細をログ出力
+      console.log(`📄 Page content debug - ID: ${id}, slug: ${slug}, pdf_page_number: ${content.pdf_page_number || 'not set'}`);
+      
       // ファイル名はID名を使用（日本語エンコード問題を回避）
       writeJSON(`content-${filename}.json`, content);
       console.log(`✅ Page fetched: ${slug} (ID: ${id})`);

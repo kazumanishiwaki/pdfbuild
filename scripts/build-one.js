@@ -628,6 +628,15 @@ async function main() {
   }
 
   ensureDir(out);
+  
+  // デバッグ用：見開きモードでの左右ページデータをログ出力
+  if (spread) {
+    console.log('🔍 Spread mode debug:');
+    console.log(`  Current page: ${data.title || 'Untitled'} (ID: ${data.id}, pdf_page_number: ${data.pdf_page_number})`);
+    console.log(`  Left page: ${leftPageData ? (leftPageData.title || 'Untitled') + ` (ID: ${leftPageData.id}, pdf_page_number: ${leftPageData.pdf_page_number})` : 'null'}`);
+    console.log(`  Right page: ${rightPageData ? (rightPageData.title || 'Untitled') + ` (ID: ${rightPageData.id}, pdf_page_number: ${rightPageData.pdf_page_number})` : 'null'}`);
+  }
+  
   const html = renderHTML(data, spread, nextPageData, spread ? leftPageData : null, spread ? rightPageData : null);
   const htmlPath = path.resolve(out, `booklet-${filename}.html`);
   const pdfPath = path.resolve(out, `booklet-${filename}.pdf`);
