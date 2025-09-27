@@ -1,13 +1,13 @@
 {
-    "key": "group_template_image_caption_3_medium_small",
-    "title": "⑩ 画像キャプション×3（中1小2）",
+    "key": "group_template_image_caption_4",
+    "title": "⑦ （画像＋キャプション）×４",
     "fields": [
         {
-            "key": "field_image_caption_3_medium_small_image_medium",
-            "label": "画像（中）",
-            "name": "image_medium",
+            "key": "field_image_caption_4_image_1",
+            "label": "画像1",
+            "name": "image_1",
             "type": "image",
-            "instructions": "PDFに表示する中サイズの画像を選択してください",
+            "instructions": "1つ目の画像を選択してください",
             "required": 1,
             "conditional_logic": 0,
             "wrapper": {
@@ -27,11 +27,11 @@
             "mime_types": "jpg,jpeg,png,gif,webp"
         },
         {
-            "key": "field_image_caption_3_medium_small_caption_medium",
-            "label": "キャプション（中）",
-            "name": "caption_medium",
+            "key": "field_image_caption_4_caption_1",
+            "label": "キャプション1",
+            "name": "caption_1",
             "type": "textarea",
-            "instructions": "中サイズ画像の説明文を入力してください",
+            "instructions": "画像1の説明文を入力してください",
             "required": 0,
             "conditional_logic": 0,
             "wrapper": {
@@ -40,17 +40,17 @@
                 "id": ""
             },
             "default_value": "",
-            "placeholder": "中画像のキャプションを入力",
+            "placeholder": "キャプション1を入力",
             "maxlength": "",
             "rows": 3,
             "new_lines": "br"
         },
         {
-            "key": "field_image_caption_3_medium_small_image_small_1",
-            "label": "画像（小）1",
-            "name": "image_small_1",
+            "key": "field_image_caption_4_image_2",
+            "label": "画像2",
+            "name": "image_2",
             "type": "image",
-            "instructions": "PDFに表示する小サイズの画像1を選択してください",
+            "instructions": "2つ目の画像を選択してください",
             "required": 1,
             "conditional_logic": 0,
             "wrapper": {
@@ -70,11 +70,11 @@
             "mime_types": "jpg,jpeg,png,gif,webp"
         },
         {
-            "key": "field_image_caption_3_medium_small_caption_small_1",
-            "label": "キャプション（小）1",
-            "name": "caption_small_1",
+            "key": "field_image_caption_4_caption_2",
+            "label": "キャプション2",
+            "name": "caption_2",
             "type": "textarea",
-            "instructions": "小サイズ画像1の説明文を入力してください",
+            "instructions": "画像2の説明文を入力してください",
             "required": 0,
             "conditional_logic": 0,
             "wrapper": {
@@ -83,17 +83,17 @@
                 "id": ""
             },
             "default_value": "",
-            "placeholder": "小画像1のキャプションを入力",
+            "placeholder": "キャプション2を入力",
             "maxlength": "",
             "rows": 3,
             "new_lines": "br"
         },
         {
-            "key": "field_image_caption_3_medium_small_image_small_2",
-            "label": "画像（小）2",
-            "name": "image_small_2",
+            "key": "field_image_caption_4_image_3",
+            "label": "画像3",
+            "name": "image_3",
             "type": "image",
-            "instructions": "PDFに表示する小サイズの画像2を選択してください",
+            "instructions": "3つ目の画像を選択してください",
             "required": 1,
             "conditional_logic": 0,
             "wrapper": {
@@ -113,11 +113,11 @@
             "mime_types": "jpg,jpeg,png,gif,webp"
         },
         {
-            "key": "field_image_caption_3_medium_small_caption_small_2",
-            "label": "キャプション（小）2",
-            "name": "caption_small_2",
+            "key": "field_image_caption_4_caption_3",
+            "label": "キャプション3",
+            "name": "caption_3",
             "type": "textarea",
-            "instructions": "小サイズ画像2の説明文を入力してください",
+            "instructions": "画像3の説明文を入力してください",
             "required": 0,
             "conditional_logic": 0,
             "wrapper": {
@@ -126,13 +126,56 @@
                 "id": ""
             },
             "default_value": "",
-            "placeholder": "小画像2のキャプションを入力",
+            "placeholder": "キャプション3を入力",
             "maxlength": "",
             "rows": 3,
             "new_lines": "br"
         },
         {
-            "key": "field_image_caption_3_medium_small_pdf_page_number",
+            "key": "field_image_caption_4_image_4",
+            "label": "画像4",
+            "name": "image_4",
+            "type": "image",
+            "instructions": "4つ目の画像を選択してください",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "return_format": "array",
+            "preview_size": "medium",
+            "library": "all",
+            "min_width": "",
+            "min_height": "",
+            "min_size": "",
+            "max_width": "",
+            "max_height": "",
+            "max_size": "",
+            "mime_types": "jpg,jpeg,png,gif,webp"
+        },
+        {
+            "key": "field_image_caption_4_caption_4",
+            "label": "キャプション4",
+            "name": "caption_4",
+            "type": "textarea",
+            "instructions": "画像4の説明文を入力してください",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "キャプション4を入力",
+            "maxlength": "",
+            "rows": 3,
+            "new_lines": "br"
+        },
+        {
+            "key": "field_image_caption_4_pdf_page_number",
             "label": "ページ数",
             "name": "pdf_page_number",
             "type": "number",
@@ -158,7 +201,7 @@
             {
                 "param": "page_template",
                 "operator": "==",
-                "value": "template-image-caption-3-medium-small.php"
+                "value": "template-image-caption-4.php"
             }
         ]
     ],

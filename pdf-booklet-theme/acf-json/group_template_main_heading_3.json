@@ -1,0 +1,180 @@
+{
+    "key": "group_template_main_heading_3",
+    "title": "③ 大見出し＋（見出し＋本文）×３",
+    "fields": [
+        {
+            "key": "field_main_heading_3_main_title",
+            "label": "大見出し",
+            "name": "main_title",
+            "type": "text",
+            "instructions": "PDFに表示される大見出しを入力してください",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "大見出しを入力",
+            "prepend": "",
+            "append": "",
+            "maxlength": ""
+        },
+        {
+            "key": "field_main_heading_3_section_1_title",
+            "label": "セクション1 見出し",
+            "name": "section_1_title",
+            "type": "text",
+            "instructions": "1つ目のセクションの見出しを入力してください",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "セクション1見出しを入力",
+            "prepend": "",
+            "append": "",
+            "maxlength": ""
+        },
+        {
+            "key": "field_main_heading_3_section_1_content",
+            "label": "セクション1 本文",
+            "name": "section_1_content",
+            "type": "textarea",
+            "instructions": "1つ目のセクションの本文を入力してください",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "セクション1本文を入力",
+            "maxlength": "",
+            "rows": 6,
+            "new_lines": "br"
+        },
+        {
+            "key": "field_main_heading_3_section_2_title",
+            "label": "セクション2 見出し",
+            "name": "section_2_title",
+            "type": "text",
+            "instructions": "2つ目のセクションの見出しを入力してください",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "セクション2見出しを入力",
+            "prepend": "",
+            "append": "",
+            "maxlength": ""
+        },
+        {
+            "key": "field_main_heading_3_section_2_content",
+            "label": "セクション2 本文",
+            "name": "section_2_content",
+            "type": "textarea",
+            "instructions": "2つ目のセクションの本文を入力してください",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "セクション2本文を入力",
+            "maxlength": "",
+            "rows": 6,
+            "new_lines": "br"
+        },
+        {
+            "key": "field_main_heading_3_section_3_title",
+            "label": "セクション3 見出し",
+            "name": "section_3_title",
+            "type": "text",
+            "instructions": "3つ目のセクションの見出しを入力してください",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "セクション3見出しを入力",
+            "prepend": "",
+            "append": "",
+            "maxlength": ""
+        },
+        {
+            "key": "field_main_heading_3_section_3_content",
+            "label": "セクション3 本文",
+            "name": "section_3_content",
+            "type": "textarea",
+            "instructions": "3つ目のセクションの本文を入力してください",
+            "required": 1,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "50",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "セクション3本文を入力",
+            "maxlength": "",
+            "rows": 6,
+            "new_lines": "br"
+        },
+        {
+            "key": "field_main_heading_3_pdf_page_number",
+            "label": "ページ数",
+            "name": "pdf_page_number",
+            "type": "number",
+            "instructions": "固定ページ一覧に表示するページ番号を入力してください",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "25",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "1",
+            "prepend": "",
+            "append": "",
+            "min": 1,
+            "max": 999,
+            "step": ""
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "page_template",
+                "operator": "==",
+                "value": "template-main-heading-3.php"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": [
+        "the_content"
+    ],
+    "active": true,
+    "description": ""
+}
+

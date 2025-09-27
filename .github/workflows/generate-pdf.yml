@@ -26,10 +26,18 @@ on:
         description: 'ダミーデータ生成を許可（1/true で許可）'
         required: false
         default: '0'
+      spread_mode:
+        description: '見開き表示モード（true で見開きPDF生成）'
+        required: false
+        default: 'false'
+      output_suffix:
+        description: '出力ファイル名のサフィックス（見開きPDFの場合は -spread）'
+        required: false
+        default: ''
 
-# 並行実行制御: 同じページIDでの同時実行を防ぐ
+# 並行実行制御: 同じページIDでの同時実行を防ぐ（見開きモード考慮）
 concurrency:
-  group: pdf-generation-${{ github.event.inputs.wp_post_ids }}
+  group: pdf-generation-${{ github.event.inputs.wp_post_ids }}-${{ github.event.inputs.spread_mode || 'normal' }}
   cancel-in-progress: false
 
 jobs:
@@ -56,6 +64,8 @@ jobs:
       FTP_DESTINATION_PATH: ${{ secrets.FTP_DESTINATION_PATH }}
       RUN_ID: ${{ github.run_id }}
       RUN_NUMBER: ${{ github.run_number }}
+      SPREAD_MODE: ${{ github.event.inputs.spread_mode }}
+      OUTPUT_SUFFIX: ${{ github.event.inputs.output_suffix }}
 
     steps:
     
@@ -119,6 +129,8 @@ jobs:
           echo "🔎 Fetch ACF for: $WP_PAGE_IDS"
           echo "🌐 WordPress URL: $WP_URL"
           echo "🎛️ ALLOW_DUMMY: ${ALLOW_DUMMY:-0}"
+          echo "📖 SPREAD_MODE: ${SPREAD_MODE:-false}"
+          echo "📝 OUTPUT_SUFFIX: ${OUTPUT_SUFFIX:-}"
           echo "🏗️ Workspace directory: $WORK_DIR"
           echo "📁 Current directory: $(pwd)"
           
@@ -194,7 +206,15 @@ jobs:
         run: |
           echo "🏗️ Building PDFs in: $WORK_DIR"
           cd "$WORK_DIR"
-          node scripts/build-batch.js --pdf --out out
+          
+          # 見開きモードの確認とビルドコマンドの調整
+          if [ "${SPREAD_MODE:-false}" = "true" ]; then
+            echo "📖 Building in spread mode with suffix: ${OUTPUT_SUFFIX:-}"
+            node scripts/build-batch.js --pdf --out out --spread --suffix "${OUTPUT_SUFFIX:-}"
+          else
+            echo "📄 Building in normal mode"
+            node scripts/build-batch.js --pdf --out out
+          fi
 
       - name: Verify PDFs generated
         run: |
@@ -208,7 +228,15 @@ jobs:
           set -euo pipefail
           cd "$WORK_DIR"
           ID="${TARGET_SLUG}"
-          TARGET_FILE="out/booklet-${ID}.pdf"
+          
+          # 見開きモードの場合はサフィックスを追加
+          if [ "${SPREAD_MODE:-false}" = "true" ] && [ -n "${OUTPUT_SUFFIX:-}" ]; then
+            TARGET_FILE="out/booklet-${ID}${OUTPUT_SUFFIX}.pdf"
+            echo "📖 Target file for spread mode: ${TARGET_FILE}"
+          else
+            TARGET_FILE="out/booklet-${ID}.pdf"
+            echo "📄 Target file for normal mode: ${TARGET_FILE}"
+          fi
           
           # 生成されたPDFファイルを探す
           FIRST=$(ls -1 out/booklet-*.pdf 2>/dev/null | head -n1 || true)
@@ -269,8 +297,16 @@ jobs:
         if: ${{ env.WP_URL != '' && env.TARGET_SLUG != '' }}
         run: |
           set -euo pipefail
-          URL="${WP_URL%/}/wp-content/uploads/pdf-booklet/booklet-${TARGET_SLUG}.pdf"
-          echo "🔍 Checking public URL: $URL"
+          
+          # 見開きモードの場合はサフィックスを追加
+          if [ "${SPREAD_MODE:-false}" = "true" ] && [ -n "${OUTPUT_SUFFIX:-}" ]; then
+            URL="${WP_URL%/}/wp-content/uploads/pdf-booklet/booklet-${TARGET_SLUG}${OUTPUT_SUFFIX}.pdf"
+            echo "🔍 Checking spread PDF public URL: $URL"
+          else
+            URL="${WP_URL%/}/wp-content/uploads/pdf-booklet/booklet-${TARGET_SLUG}.pdf"
+            echo "🔍 Checking normal PDF public URL: $URL"
+          fi
+          
           code=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
           echo "📡 HTTP response: $code"
           if [ "$code" = "200" ]; then

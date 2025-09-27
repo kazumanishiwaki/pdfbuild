@@ -31,7 +31,7 @@ add_filter('acf/settings/load_json', function($paths) {
     return $paths;
 });
 
-// ACFフィールドグループの読み込み確認（デバッグ用）
+// ACFフィールドグループの読み込み確認と強制同期
 add_action('acf/init', function() {
     error_log('ACF initialized - checking field groups');
     
@@ -41,6 +41,71 @@ add_action('acf/init', function() {
         
         foreach ($groups as $group) {
             error_log('Field group: ' . $group['title'] . ' (key: ' . $group['key'] . ')');
+        }
+        
+        // PDF Booklet用フィールドグループが不足している場合は強制同期
+        $pdf_group_keys = [
+            'group_template_heading_two_columns_text',
+            'group_template_heading_text_image_1',
+            'group_template_heading_text_image_2',
+            'group_template_heading_text_image_3_large_medium',
+            'group_template_heading_text_image_4_large_small',
+            'group_template_heading_text_image_4_medium',
+            'group_template_heading_text_image_5_medium_small',
+            'group_template_image_caption_only',
+            'group_template_image_caption_2',
+            'group_template_image_caption_3_medium_small'
+        ];
+        
+        $existing_keys = array_column($groups, 'key');
+        $missing_keys = array_diff($pdf_group_keys, $existing_keys);
+        
+        if (!empty($missing_keys)) {
+            error_log('Missing ACF field groups: ' . implode(', ', $missing_keys));
+            
+            // ACF JSONファイルから強制的に読み込み
+            if (function_exists('acf_import_field_group')) {
+                foreach ($missing_keys as $key) {
+                    $json_file = get_stylesheet_directory() . '/acf-json/' . $key . '.json';
+                    if (file_exists($json_file)) {
+                        $json_data = file_get_contents($json_file);
+                        $field_group = json_decode($json_data, true);
+                        if ($field_group) {
+                            acf_import_field_group($field_group);
+                            error_log('Imported field group: ' . $key);
+                        }
+                    }
+                }
+            }
+        }
+    }
+});
+
+// ACFフィールドグループの強制同期（管理画面アクセス時）
+add_action('admin_init', function() {
+    if (function_exists('acf_get_field_groups') && current_user_can('manage_options')) {
+        // ACF JSONファイルからフィールドグループを強制同期
+        $acf_json_dir = get_stylesheet_directory() . '/acf-json';
+        if (is_dir($acf_json_dir)) {
+            $json_files = glob($acf_json_dir . '/group_template_*.json');
+            
+            foreach ($json_files as $json_file) {
+                $json_data = file_get_contents($json_file);
+                $field_group = json_decode($json_data, true);
+                
+                if ($field_group && isset($field_group['key'])) {
+                    // 既存のフィールドグループをチェック
+                    $existing_group = acf_get_field_group($field_group['key']);
+                    
+                    if (!$existing_group) {
+                        // フィールドグループが存在しない場合は作成
+                        if (function_exists('acf_import_field_group')) {
+                            acf_import_field_group($field_group);
+                            error_log('Force imported field group: ' . $field_group['key']);
+                        }
+                    }
+                }
+            }
         }
     }
 });
@@ -68,67 +133,143 @@ add_filter('wp_get_attachment_image_src', function($image) {
     return $image;
 });
 
-// デバッグ用: WordPressの管理画面でアラートを表示
+// ACF診断用: 管理画面でACFの状況を表示
 add_action('admin_notices', function() {
     if (current_user_can('manage_options')) {
-        $current_theme = wp_get_theme();
-        $theme_name = $current_theme->get('Name');
-        $theme_dir = get_template_directory();
-        $stylesheet_dir = get_stylesheet_directory();
-        
-        // テンプレートファイルの存在確認
-        $pdf_templates = pdf_booklet_get_supported_templates();
-        $existing_templates = [];
-        $missing_templates = [];
-        
-        foreach ($pdf_templates as $file => $name) {
-            $file_path = $stylesheet_dir . '/' . $file;
-            if (file_exists($file_path)) {
-                $existing_templates[] = $file;
-            } else {
-                $missing_templates[] = $file;
-            }
-        }
-        
-        echo '<div class="notice notice-info is-dismissible">';
-        echo '<p><strong>PDF Booklet Debug:</strong></p>';
-        echo '<ul>';
-        echo '<li>functions.phpが正常に読み込まれました</li>';
-        echo '<li>現在のテーマ: ' . esc_html($theme_name) . '</li>';
-        echo '<li>テンプレートディレクトリ: ' . esc_html($theme_dir) . '</li>';
-        echo '<li>スタイルシートディレクトリ: ' . esc_html($stylesheet_dir) . '</li>';
-        echo '<li>PDF対応テンプレート数: ' . count($pdf_templates) . '</li>';
-        echo '<li>存在するテンプレート数: ' . count($existing_templates) . '</li>';
-        if (!empty($missing_templates)) {
-            echo '<li style="color: red;">不足テンプレート: ' . implode(', ', $missing_templates) . '</li>';
-        }
-        echo '</ul>';
-        
-        // ページ編集画面の場合は追加情報を表示
         $screen = get_current_screen();
         if ($screen && ($screen->id === 'page' || $screen->id === 'edit-page')) {
-            echo '<p><strong>ページテンプレート状況:</strong></p>';
+            
+            echo '<div class="notice notice-info is-dismissible">';
+            echo '<p><strong>ACF診断情報:</strong></p>';
             echo '<ul>';
             
-            // WordPressのテンプレート検出を試行
-            $page_templates = wp_get_theme()->get_page_templates();
-            echo '<li>WordPressが検出したテンプレート数: ' . count($page_templates) . '</li>';
-            
-            $our_templates_found = 0;
-            foreach ($pdf_templates as $file => $name) {
-                if (isset($page_templates[$file])) {
-                    $our_templates_found++;
+            // ACFプラグインの状況確認
+            if (function_exists('acf')) {
+                echo '<li style="color: green;">✓ ACFプラグインが有効です</li>';
+                
+                // ACFフィールドグループの確認
+                if (function_exists('acf_get_field_groups')) {
+                    $field_groups = acf_get_field_groups();
+                    echo '<li>ACFフィールドグループ数: ' . count($field_groups) . '</li>';
+                    
+                    // PDF Booklet関連のフィールドグループを確認
+                    $pdf_groups = [];
+                    foreach ($field_groups as $group) {
+                        if (strpos($group['key'], 'group_template_') === 0) {
+                            $pdf_groups[] = $group['title'] . ' (key: ' . $group['key'] . ')';
+                        }
+                    }
+                    
+                    if (!empty($pdf_groups)) {
+                        echo '<li style="color: green;">✓ PDF Booklet用フィールドグループ: ' . count($pdf_groups) . '個</li>';
+                        echo '<li style="font-size: 12px; margin-left: 20px;">' . implode('<br>', array_slice($pdf_groups, 0, 5)) . '</li>';
+                        if (count($pdf_groups) > 5) {
+                            echo '<li style="font-size: 12px; margin-left: 20px;">...他' . (count($pdf_groups) - 5) . '個</li>';
+                        }
+                    } else {
+                        echo '<li style="color: red;">✗ PDF Booklet用フィールドグループが見つかりません</li>';
+                    }
+                } else {
+                    echo '<li style="color: red;">✗ acf_get_field_groups関数が利用できません</li>';
                 }
+                
+                // 現在のページでのACF表示状況
+                global $post;
+                if ($post && $post->ID) {
+                    $template = get_page_template_slug($post->ID);
+                    echo '<li>現在のテンプレート: ' . ($template ? $template : 'デフォルト') . '</li>';
+                    
+                    if ($template) {
+                        // このテンプレートに対応するフィールドグループを検索
+                        $matching_groups = [];
+                        foreach ($field_groups as $group) {
+                            if (isset($group['location'])) {
+                                foreach ($group['location'] as $location_group) {
+                                    foreach ($location_group as $rule) {
+                                        if ($rule['param'] === 'page_template' && $rule['value'] === $template) {
+                                            $matching_groups[] = $group['title'];
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (!empty($matching_groups)) {
+                            echo '<li style="color: green;">✓ 対応フィールドグループ: ' . implode(', ', $matching_groups) . '</li>';
+                        } else {
+                            echo '<li style="color: red;">✗ このテンプレートに対応するフィールドグループが見つかりません</li>';
+                        }
+                    }
+                }
+                
+            } else {
+                echo '<li style="color: red;">✗ ACFプラグインが無効または未インストールです</li>';
             }
-            echo '<li>我々のテンプレートの検出数: ' . $our_templates_found . '</li>';
             
-            if ($our_templates_found === 0) {
-                echo '<li style="color: red;">⚠️ テンプレートが検出されていません。ブラウザをリフレッシュしてください。</li>';
+            // ACF JSONディレクトリの確認
+            $acf_json_dir = get_stylesheet_directory() . '/acf-json';
+            if (is_dir($acf_json_dir)) {
+                $json_files = glob($acf_json_dir . '/*.json');
+                echo '<li>ACF JSONファイル数: ' . count($json_files) . '</li>';
+                
+                // PDF Booklet関連のJSONファイルを確認
+                $pdf_json_files = [];
+                foreach ($json_files as $file) {
+                    $filename = basename($file);
+                    if (strpos($filename, 'group_template_') === 0) {
+                        $pdf_json_files[] = $filename;
+                    }
+                }
+                
+                if (!empty($pdf_json_files)) {
+                    echo '<li style="color: green;">✓ PDF Booklet用JSONファイル: ' . count($pdf_json_files) . '個</li>';
+                } else {
+                    echo '<li style="color: red;">✗ PDF Booklet用JSONファイルが見つかりません</li>';
+                }
+            } else {
+                echo '<li style="color: red;">✗ ACF JSONディレクトリが存在しません: ' . $acf_json_dir . '</li>';
             }
+            
             echo '</ul>';
+            
+            // ACF同期ボタンを追加
+            echo '<p><button type="button" id="sync-acf-fields" class="button button-secondary">ACFフィールドを強制同期</button></p>';
+            
+            echo '</div>';
+            
+            // ACF同期用のJavaScript
+            echo '<script>
+            jQuery(document).ready(function($) {
+                $("#sync-acf-fields").on("click", function() {
+                    var button = $(this);
+                    button.prop("disabled", true).text("同期中...");
+                    
+                    $.ajax({
+                        url: ajaxurl,
+                        type: "POST",
+                        data: {
+                            action: "sync_acf_fields",
+                            nonce: "' . wp_create_nonce('sync_acf_fields') . '"
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                alert("ACFフィールドの同期が完了しました。ページをリロードします。");
+                                location.reload();
+                            } else {
+                                alert("同期に失敗しました: " + response.data);
+                            }
+                        },
+                        error: function() {
+                            alert("通信エラーが発生しました。");
+                        },
+                        complete: function() {
+                            button.prop("disabled", false).text("ACFフィールドを強制同期");
+                        }
+                    });
+                });
+            });
+            </script>';
         }
-        
-        echo '</div>';
     }
 });
 
@@ -314,6 +455,7 @@ function render_pdf_settings_page(){
     <?php
 }
 
+
 // PDFファイル管理ページの表示
 function render_pdf_manager_page() {
     $pdf_dir = wp_upload_dir()['basedir'] . '/pdf-booklet/';
@@ -405,6 +547,7 @@ function render_pdf_manager_page() {
     <div class="wrap">
         <h1>PDFブックレット管理</h1>
         
+        
         <div class="postbox" style="padding: 15px; margin-bottom: 20px;">
             <h2>PDF一括生成</h2>
             <p>PDFブックレットテンプレートを使用している全ページのPDFを一括生成します</p>
@@ -415,6 +558,9 @@ function render_pdf_manager_page() {
         </div>
         
         <h2>生成済みPDFファイル一覧</h2>
+        <div class="notice notice-info" style="margin-bottom: 20px;">
+            <p><strong>見開き表示について:</strong> 各PDFファイルに対して見開き表示専用のPDFを別途生成できます。見開きPDFは元のPDFとは異なるレイアウトで表示されます。</p>
+        </div>
         <?php if (empty($pdf_files)): ?>
             <p>PDFファイルはまだ生成されていません。</p>
         <?php else: ?>
@@ -425,7 +571,7 @@ function render_pdf_manager_page() {
                         <th>関連ページ</th>
                         <th>サイズ</th>
                         <th>最終更新日</th>
-                        <th>操作</th>
+                        <th>操作（通常PDF / 見開きPDF）</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -480,6 +626,19 @@ function render_pdf_manager_page() {
                         <td><?php echo esc_html($modified); ?></td>
                         <td>
                             <a href="<?php echo esc_url($file_url); ?>" target="_blank" class="button button-small">表示</a>
+                            <?php
+                            // 見開き専用PDFファイルの確認
+                            $spread_filename = str_replace('.pdf', '-spread.pdf', $filename);
+                            $spread_file = $pdf_dir . $spread_filename;
+                            $spread_url = $pdf_url . $spread_filename;
+                            $spread_exists = file_exists($spread_file);
+                            ?>
+                            
+                            <?php if ($spread_exists): ?>
+                                <a href="<?php echo esc_url($spread_url); ?>" target="_blank" class="button button-small button-primary">見開き表示</a>
+                            <?php else: ?>
+                                <button type="button" class="button button-small generate-spread-pdf" data-page-id="<?php echo esc_attr($related_page_id); ?>" data-filename="<?php echo esc_attr($filename); ?>">見開きPDF生成</button>
+                            <?php endif; ?>
                             
                             <form method="post" action="" style="display:inline-block;">
                                 <?php wp_nonce_field('delete_pdf_file'); ?>
@@ -496,7 +655,53 @@ function render_pdf_manager_page() {
                 </tbody>
             </table>
         <?php endif; ?>
+        
     </div>
+    
+    <script>
+    jQuery(document).ready(function($) {
+        // 見開きPDF生成ボタンのクリックイベント
+        $('.generate-spread-pdf').on('click', function() {
+            var pageId = $(this).data('page-id');
+            var filename = $(this).data('filename');
+            var button = $(this);
+            
+            if (!confirm('見開き表示用のPDFを生成しますか？完了まで数分かかる場合があります。')) {
+                return;
+            }
+            
+            button.prop('disabled', true).text('生成中...');
+            
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'generate_spread_pdf',
+                    page_id: pageId,
+                    filename: filename,
+                    nonce: '<?php echo wp_create_nonce('pdf_booklet_spread'); ?>'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        alert('見開きPDF生成を開始しました。完了まで数分かかる場合があります。');
+                        // 10秒後にページをリロード（見開きPDF生成状態を更新）
+                        setTimeout(function() {
+                            location.reload();
+                        }, 10000);
+                    } else {
+                        alert('エラー: ' + response.data);
+                    }
+                },
+                error: function() {
+                    alert('通信エラーが発生しました。');
+                },
+                complete: function() {
+                    button.prop('disabled', false).text('見開きPDF生成');
+                }
+            });
+        });
+    });
+    </script>
     <?php
 }
 
@@ -722,91 +927,8 @@ add_action('admin_head-post.php', function() {
             console.log('Page attributes metabox:', $('#pageparentdiv').length ? 'Found' : 'Not found');
             console.log('=== END DEBUG ===');
             
-            // カスタムテンプレートセレクターを直接JavaScriptで追加
-            function addCustomTemplateSelector() {
-                if ($('#pdf-booklet-template-selector').length === 0) {
-                    console.log('Adding custom template selector via JavaScript');
-                    
-                    var currentTemplate = '<?php echo esc_js(get_page_template_slug($post->ID ?? 0)); ?>';
-                    console.log('Current template from PHP:', currentTemplate);
-                    
-                    var templateOptions = {
-                        '': 'デフォルトテンプレート',
-                        'template-heading-text.php': '① 見出し＋本文',
-                        'template-main-heading-2.php': '② 大見出し＋（見出し＋本文）×２',
-                        'template-main-heading-3.php': '③ 大見出し＋（見出し＋本文）×３',
-                        'template-image-caption-1.php': '④ 画像＋キャプション',
-                        'template-image-caption-2.php': '⑤ （画像＋キャプション）×２',
-                        'template-image-caption-3.php': '⑥ （画像＋キャプション）×３',
-                        'template-image-caption-4.php': '⑦ （画像＋キャプション）×４',
-                        'template-timeline.php': '⑧ 年表（年、月、出来事）×100',
-                        'template-heading-two-columns-text.php': '⑨ 見出し＋左右カラム本文',
-                        'template-heading-text-image-1.php': '⑩ 見出し＋左本文＋右画像キャプション',
-                        'template-heading-text-image-2.php': '⑪ 見出し＋左本文＋右画像キャプション×2',
-                        'template-heading-text-image-3-large-medium.php': '⑫ 見出し＋左本文＋右画像キャプション×3（大1中2）',
-                        'template-heading-text-image-4-large-small.php': '⑬ 見出し＋左本文＋右画像キャプション×4（大1小3）',
-                        'template-heading-text-image-4-medium.php': '⑭ 見出し＋左本文＋右画像キャプション×4（中4）',
-                        'template-heading-text-image-5-medium-small.php': '⑮ 見出し＋左本文＋右画像キャプション×5（中2小3）',
-                        'template-image-caption-only.php': '⑯ 画像キャプションのみ',
-                        'template-image-caption-3-medium-small.php': '⑰ 画像キャプション×3（中1小2）'
-                    };
-                    
-                    var optionsHtml = '';
-                    for (var value in templateOptions) {
-                        var selected = (currentTemplate === value) ? ' selected' : '';
-                        optionsHtml += '<option value="' + value + '"' + selected + '>' + templateOptions[value] + '</option>';
-                    }
-                    
-                    var selectorHtml = '<div id="pdf-booklet-template-selector" style="background: #f0f6fc; border: 1px solid #c3c4c7; padding: 15px; margin: 20px 0; border-radius: 4px;">' +
-                        '<h3 style="margin-top: 0;">🎨 PDFブックレット テンプレート選択</h3>' +
-                        '<p style="margin-bottom: 10px;">このページで使用するテンプレートを選択してください：</p>' +
-                        '<select id="pdf-custom-template-selector" name="page_template" style="width: 100%; padding: 8px;">' +
-                        optionsHtml +
-                        '</select>' +
-                        '<p style="margin-top: 10px; font-size: 12px; color: #666;">' +
-                        '💡 PDFブックレットテンプレートを選択すると、PDF生成機能が有効になります。' +
-                        '</p>' +
-                        '</div>' +
-                    
-                    // タイトルの後に挿入
-                    if ($('#titlewrap').length) {
-                        $('#titlewrap').after(selectorHtml);
-                        console.log('Custom selector added after title');
-                    } else if ($('#title').length) {
-                        $('#title').closest('.wrap').find('h1').after(selectorHtml);
-                        console.log('Custom selector added after h1');
-                    } else {
-                        $('.wrap').prepend(selectorHtml);
-                        console.log('Custom selector prepended to wrap');
-                    }
-                    
-                    // イベントリスナーを追加
-                    $('#pdf-custom-template-selector').on('change', function() {
-                        var selectedTemplate = $(this).val();
-                        console.log('Custom template selector changed to:', selectedTemplate);
-                        
-                        // 標準のpage_templateがあれば同期
-                        if ($('#page_template').length) {
-                            $('#page_template').val(selectedTemplate);
-                        }
-                        
-                        // 手動でテンプレート変更イベントをトリガー
-                        $(document).trigger('pdf-template-changed', [selectedTemplate]);
-                    });
-                    
-                    // 初期状態でテンプレートが選択されている場合はイベントを発火
-                    if (currentTemplate) {
-                        setTimeout(function() {
-                            $(document).trigger('pdf-template-changed', [currentTemplate]);
-                        }, 100);
-                    }
-                } else {
-                    console.log('Custom template selector already exists');
-                }
-            }
-            
-            // DOM読み込み後に追加
-            setTimeout(addCustomTemplateSelector, 500);
+            // カスタムテンプレートセレクターは削除（ページ属性と重複のため）
+            console.log('Using standard WordPress page template selector');
             
             // テンプレート変更を監視する関数
             function handleTemplateChange() {
@@ -908,62 +1030,7 @@ add_action('admin_head-post.php', function() {
                 }
             }
             
-            // カスタムテンプレート変更処理関数
-            function handleCustomTemplateChange(template) {
-                console.log('Handling custom template change:', template);
-                
-                // PDF Bookletテンプレートかどうかを判定
-                var pdfTemplates = [
-                    'template-heading-text.php',
-                    'template-main-heading-2.php',
-                    'template-main-heading-3.php',
-                    'template-image-caption-1.php',
-                    'template-image-caption-2.php',
-                    'template-image-caption-3.php',
-                    'template-image-caption-4.php',
-                    'template-timeline.php',
-                    'template-heading-two-columns-text.php',
-                    'template-heading-text-image-1.php',
-                    'template-heading-text-image-2.php',
-                    'template-heading-text-image-3-large-medium.php',
-                    'template-heading-text-image-4-large-small.php',
-                    'template-heading-text-image-4-medium.php',
-                    'template-heading-text-image-5-medium-small.php',
-                    'template-image-caption-only.php',
-                    'template-image-caption-3-medium-small.php'
-                ];
-                
-                var isPdfBookletTemplate = pdfTemplates.indexOf(template) !== -1;
-                
-                console.log('Is PDF Booklet template (custom):', isPdfBookletTemplate);
-                
-                if (isPdfBookletTemplate) {
-                    console.log('PDF Booklet template selected via custom selector');
-                    
-                    // bodyにクラスを追加
-                    $('body').addClass('pdf-booklet-active');
-                    
-                    // 説明メッセージを追加（重複チェック）
-                    if ($('.content-editor-replacement').length === 0) {
-                        $('#postdivrich').after('<div class="content-editor-replacement"><h3>📝 コンテンツの入力について</h3><p><strong>このページでは固定ページの本文は使用されません。</strong></p><p>PDFに表示するコンテンツは、下記の「PDFブックレット設定」フィールドで入力してください。</p></div>');
-                    }
-                    
-                    // タイトル下の説明を追加（重複チェック）
-                    if ($('#title').next('p').length === 0) {
-                        $('#title').after('<p style="margin: 10px 0; color: #666; font-size: 13px;">💡 このページタイトルはPDFには表示されません。PDFタイトルは下記のACFフィールドで設定してください。</p>');
-                    }
-                    
-                    // PDF Bookletウィジェットを追加（ACFがない場合の代替）
-                    addPdfBookletWidget();
-                    
-                } else {
-                    console.log('Other template selected via custom selector');
-                    $('body').removeClass('pdf-booklet-active');
-                    $('.content-editor-replacement').remove();
-                    $('#title').next('p').remove();
-                    $('.pdf-booklet-meta').remove();
-                }
-            }
+            // カスタムテンプレート変更処理は削除（標準のテンプレート選択を使用）
             
             // 初期状態をチェック
             setTimeout(function() {
@@ -971,17 +1038,10 @@ add_action('admin_head-post.php', function() {
                 handleTemplateChange();
             }, 500);
             
-            // テンプレート変更イベントを監視（複数のセレクターに対応）
-            $(document).on('change', '#page_template, select[name="page_template"], select[id*="template"], #pdf-custom-template-selector', function() {
+            // テンプレート変更イベントを監視（標準のセレクターのみ）
+            $(document).on('change', '#page_template, select[name="page_template"], select[id*="template"]', function() {
                 console.log('Template change event triggered');
                 handleTemplateChange();
-            });
-            
-            // カスタムイベントも監視
-            $(document).on('pdf-template-changed', function(event, template) {
-                console.log('Custom PDF template changed event:', template);
-                // カスタムセレクターの値を使用してテンプレート変更を処理
-                handleCustomTemplateChange(template);
             });
             
             // ページ読み込み時に再度チェック（遅延実行）
@@ -1063,63 +1123,8 @@ add_action('admin_head-post-new.php', function() {
     }
 });
 
-// カスタムテンプレートセレクターを追加（ページ属性が見つからない場合の代替）
-add_action('edit_form_after_title', function($post) {
-    if ($post->post_type !== 'page') {
-        return;
-    }
-    
-    $current_template = get_page_template_slug($post->ID);
-    $available_templates = pdf_booklet_get_supported_templates();
-    
-    ?>
-    <div id="pdf-booklet-template-selector" style="background: #f0f6fc; border: 1px solid #c3c4c7; padding: 15px; margin: 20px 0; border-radius: 4px;">
-        <h3 style="margin-top: 0;">🎨 PDFブックレット テンプレート選択</h3>
-        <p style="margin-bottom: 10px;">このページで使用するテンプレートを選択してください：</p>
-        
-        <select id="pdf-custom-template-selector" name="page_template" style="width: 100%; padding: 8px;">
-            <option value="">デフォルトテンプレート</option>
-            <?php foreach ($available_templates as $file => $name): ?>
-                <option value="<?php echo esc_attr($file); ?>" <?php selected($current_template, $file); ?>>
-                    <?php echo esc_html($name); ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
-        
-        <p style="margin-top: 10px; font-size: 12px; color: #666;">
-            💡 「テキスト+写真2枚形式」を選択すると、PDF生成機能が有効になります。
-        </p>
-    </div>
-    
-    <script>
-    jQuery(document).ready(function($) {
-        console.log('Custom template selector added');
-        
-        // カスタムセレクターの変更を監視
-        $('#pdf-custom-template-selector').on('change', function() {
-            var selectedTemplate = $(this).val();
-            console.log('Custom template selector changed to:', selectedTemplate);
-            
-            // 標準のpage_templateがあれば同期
-            if ($('#page_template').length) {
-                $('#page_template').val(selectedTemplate);
-            }
-            
-            // 手動でテンプレート変更イベントをトリガー
-            $(document).trigger('pdf-template-changed', [selectedTemplate]);
-        });
-        
-        // 初期値を設定
-        setTimeout(function() {
-            var currentTemplate = $('#pdf-custom-template-selector').val();
-            if (currentTemplate) {
-                $(document).trigger('pdf-template-changed', [currentTemplate]);
-            }
-        }, 500);
-    });
-    </script>
-    <?php
-});
+// カスタムテンプレートセレクターは削除（ページ属性と重複のため）
+// ページ属性のテンプレート選択を使用してください
 
 // ページ編集画面にPDF Bookletウィジェットを追加（日本時間対応）
 add_action('edit_form_after_title', function($post) {
@@ -1178,6 +1183,23 @@ add_action('edit_form_after_title', function($post) {
                 <button type="button" class="button delete-pdf-single" data-page-id="<?php echo $post->ID; ?>" style="margin-left: 5px;">
                     PDF削除
                 </button>
+                
+                <?php
+                // 見開きPDFファイルの確認
+                $spread_pdf_file = wp_upload_dir()['basedir'] . '/pdf-booklet/booklet-' . $post->ID . '-spread.pdf';
+                $spread_pdf_url = wp_upload_dir()['baseurl'] . '/pdf-booklet/booklet-' . $post->ID . '-spread.pdf';
+                $spread_pdf_exists = file_exists($spread_pdf_file);
+                ?>
+                
+                <?php if ($spread_pdf_exists): ?>
+                <a href="<?php echo esc_url($spread_pdf_url); ?>" target="_blank" class="button button-secondary" style="margin-left: 5px;">
+                    見開き表示
+                </a>
+                <?php else: ?>
+                <button type="button" class="button button-secondary generate-spread-pdf-single" data-page-id="<?php echo $post->ID; ?>" style="margin-left: 5px;">
+                    見開きPDF生成
+                </button>
+                <?php endif; ?>
                 <?php endif; ?>
             </div>
         </div>
@@ -1270,6 +1292,46 @@ add_action('edit_form_after_title', function($post) {
                 }
             });
         });
+        
+        // 見開きPDF生成ボタン（単体）
+        $('.generate-spread-pdf-single').on('click', function() {
+            var pageId = $(this).data('page-id');
+            var button = $(this);
+            
+            if (!confirm('見開き表示用のPDFを生成しますか？完了まで数分かかる場合があります。')) {
+                return;
+            }
+            
+            button.prop('disabled', true).text('生成中...');
+            
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'generate_spread_pdf',
+                    page_id: pageId,
+                    filename: 'booklet-' + pageId + '.pdf',
+                    nonce: '<?php echo wp_create_nonce('pdf_booklet_spread'); ?>'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        alert('見開きPDF生成を開始しました。完了まで数分かかる場合があります。');
+                        // 10秒後にページをリロード
+                        setTimeout(function() {
+                            location.reload();
+                        }, 10000);
+                    } else {
+                        alert('エラー: ' + response.data);
+                    }
+                },
+                error: function() {
+                    alert('通信エラーが発生しました。');
+                },
+                complete: function() {
+                    button.prop('disabled', false).text('見開きPDF生成');
+                }
+            });
+        });
     });
     </script>
     <?php
@@ -1309,6 +1371,84 @@ add_action('wp_ajax_delete_pdf_single', function() {
         wp_send_json_success('PDFファイルを削除しました。');
     } else {
         wp_send_json_error('PDFファイルの削除に失敗しました。');
+    }
+});
+
+// AJAX: 見開きPDF生成
+add_action('wp_ajax_generate_spread_pdf', function() {
+    check_ajax_referer('pdf_booklet_spread', 'nonce');
+    
+    $page_id = intval($_POST['page_id']);
+    $filename = sanitize_text_field($_POST['filename']);
+    
+    if (!$page_id || !$filename) {
+        wp_send_json_error('無効なパラメータです。');
+    }
+    
+    // 見開きPDF生成のGitHub Actions APIを呼び出し
+    $result = trigger_github_actions_for_spread_pdf($page_id, $filename);
+    
+    if ($result['success']) {
+        wp_send_json_success('見開きPDF生成を開始しました。');
+    } else {
+        wp_send_json_error($result['message']);
+    }
+});
+
+// AJAX: ACFフィールド強制同期
+add_action('wp_ajax_sync_acf_fields', function() {
+    check_ajax_referer('sync_acf_fields', 'nonce');
+    
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('権限がありません。');
+    }
+    
+    $synced_count = 0;
+    $errors = [];
+    
+    // ACF JSONディレクトリからフィールドグループを読み込み
+    $acf_json_dir = get_stylesheet_directory() . '/acf-json';
+    if (is_dir($acf_json_dir)) {
+        $json_files = glob($acf_json_dir . '/group_template_*.json');
+        
+        foreach ($json_files as $json_file) {
+            $json_data = file_get_contents($json_file);
+            $field_group = json_decode($json_data, true);
+            
+            if ($field_group && isset($field_group['key'])) {
+                try {
+                    // 既存のフィールドグループを削除してから再作成
+                    $existing_group = acf_get_field_group($field_group['key']);
+                    if ($existing_group) {
+                        acf_delete_field_group($existing_group['ID']);
+                    }
+                    
+                    // 新しいフィールドグループを作成
+                    if (function_exists('acf_import_field_group')) {
+                        acf_import_field_group($field_group);
+                        $synced_count++;
+                    } else {
+                        // 代替方法でフィールドグループを作成
+                        $group_id = acf_update_field_group($field_group);
+                        if ($group_id) {
+                            $synced_count++;
+                        }
+                    }
+                } catch (Exception $e) {
+                    $errors[] = basename($json_file) . ': ' . $e->getMessage();
+                }
+            }
+        }
+    }
+    
+    if ($synced_count > 0) {
+        $message = $synced_count . '個のACFフィールドグループを同期しました。';
+        if (!empty($errors)) {
+            $message .= ' エラー: ' . implode(', ', $errors);
+        }
+        wp_send_json_success($message);
+    } else {
+        wp_send_json_error('同期できるフィールドグループが見つかりませんでした。' . (!empty($errors) ? ' エラー: ' . implode(', ', $errors) : ''));
     }
 });
 
@@ -1375,6 +1515,71 @@ function trigger_github_actions_for_page($page_id) {
         return [
             'success' => false,
             'message' => 'GitHub API エラー (HTTP ' . $status_code . '): ' . ($error_data['message'] ?? 'Unknown error')
+        ];
+    }
+}
+
+// 見開きPDF生成用のGitHub Actions API呼び出し関数
+function trigger_github_actions_for_spread_pdf($page_id, $filename) {
+    $token = get_option('github_actions_token');
+    $repo = get_option('github_repo');
+    $wf_id = get_option('github_workflow_id');
+    
+    if (!$token || !$repo || !$wf_id) {
+        return [
+            'success' => false,
+            'message' => 'GitHub設定が不完全です。設定ページで確認してください。'
+        ];
+    }
+    
+    $url = "https://api.github.com/repos/{$repo}/actions/workflows/{$wf_id}/dispatches";
+    
+    // 見開き表示専用のパラメータを設定
+    $data = [
+        'ref' => 'main',
+        'inputs' => [
+            'wp_post_ids' => (string)$page_id,
+            'target_slug' => '',
+            'template_type' => 'spread', // 見開き表示用のフラグ
+            'concurrency' => '1',
+            'skip_schema' => '0',
+            'allow_dummy' => '0',
+            'spread_mode' => 'true', // 見開きモード有効
+            'output_suffix' => '-spread' // 出力ファイル名のサフィックス
+        ]
+    ];
+    
+    $response = wp_remote_post($url, [
+        'headers' => [
+            'Authorization' => 'token ' . $token,
+            'Accept' => 'application/vnd.github.v3+json',
+            'User-Agent' => 'WordPress-PDF-Booklet-Spread'
+        ],
+        'body' => json_encode($data),
+        'timeout' => 30
+    ]);
+    
+    if (is_wp_error($response)) {
+        return [
+            'success' => false,
+            'message' => '見開きPDF生成APIへの接続に失敗しました: ' . $response->get_error_message()
+        ];
+    }
+    
+    $status_code = wp_remote_retrieve_response_code($response);
+    
+    if ($status_code === 204) {
+        return [
+            'success' => true,
+            'message' => '見開きPDF生成を開始しました。'
+        ];
+    } else {
+        $body = wp_remote_retrieve_body($response);
+        $error_data = json_decode($body, true);
+        
+        return [
+            'success' => false,
+            'message' => '見開きPDF生成API エラー (HTTP ' . $status_code . '): ' . ($error_data['message'] ?? 'Unknown error')
         ];
     }
 }
@@ -1455,6 +1660,7 @@ add_filter('manage_pages_columns', function($columns) {
         $new_columns[$key] = $value;
         if ($key === 'title') {
             $new_columns['pdf_status'] = 'PDF状態';
+            $new_columns['pdf_preview'] = '見開きプレビュー';
         }
     }
     return $new_columns;
@@ -1478,6 +1684,28 @@ add_action('manage_pages_custom_column', function($column, $post_id) {
                 echo '<small style="color: #666;">更新: ' . esc_html($modified) . '</small>';
             } else {
                 echo '<span style="color: #dc3232;">⚠ PDF未生成</span>';
+            }
+        } else {
+            echo '<span style="color: #999;">—</span>';
+        }
+    }
+    
+    if ($column === 'pdf_preview') {
+        $template = get_page_template_slug($post_id);
+        $pdf_templates = array_keys(pdf_booklet_get_supported_templates());
+        
+        if (in_array($template, $pdf_templates)) {
+            // PDFファイルの存在確認
+            $pdf_url = 'https://kazumanishiwaki.net/ks/wp-content/uploads/pdf-booklet/booklet-' . $post_id . '.pdf';
+            $response = wp_remote_head($pdf_url, ['timeout' => 5]);
+            
+            if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200) {
+                $page_number = get_field('pdf_page_number', $post_id) ?: '?';
+                echo '<a href="' . esc_url(admin_url('admin.php?page=pdf-booklet-manager')) . '" class="button button-small" title="生成済みPDFファイル一覧で見開き表示">';
+                echo '📖 ページ' . esc_html($page_number);
+                echo '</a>';
+            } else {
+                echo '<span style="color: #999; font-size: 12px;">PDF未生成</span>';
             }
         } else {
             echo '<span style="color: #999;">—</span>';

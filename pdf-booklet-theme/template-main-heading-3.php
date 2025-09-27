@@ -17,23 +17,30 @@ get_header(); ?>
                 <div class="entry-content">
                     <?php if (function_exists('get_field')): ?>
                         <?php 
-                        $main_heading = get_field('main_heading');
-                        $section_1 = get_field('section_1');
-                        $section_2 = get_field('section_2');
-                        $section_3 = get_field('section_3');
+                        $main_title = get_field('main_title');
+                        $section_1_title = get_field('section_1_title');
+                        $section_1_content = get_field('section_1_content');
+                        $section_2_title = get_field('section_2_title');
+                        $section_2_content = get_field('section_2_content');
+                        $section_3_title = get_field('section_3_title');
+                        $section_3_content = get_field('section_3_content');
                         ?>
                         
-                        <?php if ($main_heading): ?>
-                            <h1 class="pdf-main-heading"><?php echo esc_html($main_heading); ?></h1>
+                        <?php if ($main_title): ?>
+                            <h1 class="pdf-main-heading"><?php echo esc_html($main_title); ?></h1>
                         <?php endif; ?>
                         
                         <?php 
-                        $sections = [$section_1, $section_2, $section_3];
+                        $sections = [
+                            ['title' => $section_1_title, 'content' => $section_1_content],
+                            ['title' => $section_2_title, 'content' => $section_2_content],
+                            ['title' => $section_3_title, 'content' => $section_3_content]
+                        ];
                         foreach ($sections as $section): 
-                            if ($section): ?>
+                            if ($section['title'] || $section['content']): ?>
                                 <div class="pdf-section">
-                                    <?php if ($section['heading']): ?>
-                                        <h2 class="pdf-section-heading"><?php echo esc_html($section['heading']); ?></h2>
+                                    <?php if ($section['title']): ?>
+                                        <h2 class="pdf-section-heading"><?php echo esc_html($section['title']); ?></h2>
                                     <?php endif; ?>
                                     <?php if ($section['content']): ?>
                                         <div class="pdf-section-content">

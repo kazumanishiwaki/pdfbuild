@@ -39,6 +39,27 @@
             "maxlength": "",
             "rows": 6,
             "new_lines": "br"
+        },
+        {
+            "key": "field_heading_text_pdf_page_number",
+            "label": "ページ数",
+            "name": "pdf_page_number",
+            "type": "number",
+            "instructions": "固定ページ一覧に表示するページ番号を入力してください",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "25",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "placeholder": "1",
+            "prepend": "",
+            "append": "",
+            "min": 1,
+            "max": 999,
+            "step": ""
         }
     ],
     "location": [

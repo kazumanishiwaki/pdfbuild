@@ -17,36 +17,38 @@ get_header(); ?>
                 <div class="entry-content">
                     <?php if (function_exists('get_field')): ?>
                         <?php 
-                        $main_heading = get_field('main_heading');
-                        $section_1 = get_field('section_1');
-                        $section_2 = get_field('section_2');
+                        $main_title = get_field('main_title');
+                        $section_1_title = get_field('section_1_title');
+                        $section_1_content = get_field('section_1_content');
+                        $section_2_title = get_field('section_2_title');
+                        $section_2_content = get_field('section_2_content');
                         ?>
                         
-                        <?php if ($main_heading): ?>
-                            <h1 class="pdf-main-heading"><?php echo esc_html($main_heading); ?></h1>
+                        <?php if ($main_title): ?>
+                            <h1 class="pdf-main-heading"><?php echo esc_html($main_title); ?></h1>
                         <?php endif; ?>
                         
-                        <?php if ($section_1): ?>
+                        <?php if ($section_1_title || $section_1_content): ?>
                             <div class="pdf-section">
-                                <?php if ($section_1['heading']): ?>
-                                    <h2 class="pdf-section-heading"><?php echo esc_html($section_1['heading']); ?></h2>
+                                <?php if ($section_1_title): ?>
+                                    <h2 class="pdf-section-heading"><?php echo esc_html($section_1_title); ?></h2>
                                 <?php endif; ?>
-                                <?php if ($section_1['content']): ?>
+                                <?php if ($section_1_content): ?>
                                     <div class="pdf-section-content">
-                                        <?php echo wp_kses_post(nl2br($section_1['content'])); ?>
+                                        <?php echo wp_kses_post(nl2br($section_1_content)); ?>
                                     </div>
                                 <?php endif; ?>
                             </div>
                         <?php endif; ?>
                         
-                        <?php if ($section_2): ?>
+                        <?php if ($section_2_title || $section_2_content): ?>
                             <div class="pdf-section">
-                                <?php if ($section_2['heading']): ?>
-                                    <h2 class="pdf-section-heading"><?php echo esc_html($section_2['heading']); ?></h2>
+                                <?php if ($section_2_title): ?>
+                                    <h2 class="pdf-section-heading"><?php echo esc_html($section_2_title); ?></h2>
                                 <?php endif; ?>
-                                <?php if ($section_2['content']): ?>
+                                <?php if ($section_2_content): ?>
                                     <div class="pdf-section-content">
-                                        <?php echo wp_kses_post(nl2br($section_2['content'])); ?>
+                                        <?php echo wp_kses_post(nl2br($section_2_content)); ?>
                                     </div>
                                 <?php endif; ?>
                             </div>
