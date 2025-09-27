@@ -524,50 +524,70 @@ async function main() {
       console.log(`📝 Output suffix: ${suffix}`);
     }
     
-    // 見開きページの計算（偶数ページを左、奇数ページを右に配置）
+    // 見開きページの計算（pdf_page_numberベースで偶数ページを左、奇数ページを右に配置）
+    const currentPageNumber = parseInt(data.pdf_page_number || data.id);
     const currentPageId = parseInt(data.id);
-    let leftPageId, rightPageId;
+    let leftPageNumber, rightPageNumber;
     
-    if (currentPageId % 2 === 0) {
-      // 偶数ページの場合：現在のページが左、次のページが右
-      leftPageId = currentPageId;
-      rightPageId = currentPageId + 1;
+    if (currentPageNumber % 2 === 0) {
+      // 偶数ページ番号の場合：現在のページが左、次のページが右
+      leftPageNumber = currentPageNumber;
+      rightPageNumber = currentPageNumber + 1;
     } else {
-      // 奇数ページの場合：前のページが左、現在のページが右
-      leftPageId = currentPageId - 1;
-      rightPageId = currentPageId;
+      // 奇数ページ番号の場合：前のページが左、現在のページが右
+      leftPageNumber = currentPageNumber - 1;
+      rightPageNumber = currentPageNumber;
     }
     
-    const leftJsonPath = json.replace(`content-${currentPageId}.json`, `content-${leftPageId}.json`);
-    const rightJsonPath = json.replace(`content-${currentPageId}.json`, `content-${rightPageId}.json`);
+    console.log(`🔍 Current page ID: ${currentPageId}, PDF page number: ${currentPageNumber}`);
+    console.log(`🔍 Left page number: ${leftPageNumber}, Right page number: ${rightPageNumber}`);
     
-    console.log(`🔍 Current page ID: ${currentPageId}`);
-    console.log(`🔍 Left page ID: ${leftPageId}, Right page ID: ${rightPageId}`);
-    console.log(`🔍 Looking for left page: ${leftJsonPath}`);
-    console.log(`🔍 Looking for right page: ${rightJsonPath}`);
+    // 隣接ページのファイルを探す（全てのcontent-*.jsonファイルを確認）
+    const dir = path.dirname(json);
+    const allFiles = fs.readdirSync(dir).filter(f => f.startsWith('content-') && f.endsWith('.json'));
+    
+    let leftPageFile = null, rightPageFile = null;
+    
+    for (const file of allFiles) {
+      try {
+        const filePath = path.join(dir, file);
+        const fileData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+        const filePageNumber = parseInt(fileData.pdf_page_number || fileData.id);
+        
+        if (filePageNumber === leftPageNumber) {
+          leftPageFile = filePath;
+          console.log(`📄 Found left page file: ${file} (page number: ${filePageNumber})`);
+        } else if (filePageNumber === rightPageNumber) {
+          rightPageFile = filePath;
+          console.log(`📄 Found right page file: ${file} (page number: ${filePageNumber})`);
+        }
+      } catch (e) {
+        console.warn(`⚠️ Could not read file ${file}: ${e.message}`);
+      }
+    }
     
     // 左ページのデータを読み込み
-    if (leftPageId !== currentPageId && fs.existsSync(leftJsonPath)) {
-      const leftRaw = fs.readFileSync(leftJsonPath, 'utf-8');
+    if (leftPageFile && leftPageNumber !== currentPageNumber) {
+      const leftRaw = fs.readFileSync(leftPageFile, 'utf-8');
       leftPageData = JSON.parse(leftRaw);
-      console.log(`📄 Left page loaded: ${leftPageId} (${leftPageData.title || 'Untitled'})`);
-    } else if (leftPageId === currentPageId) {
+      console.log(`📄 Left page loaded: ${leftPageData.title || 'Untitled'} (page number: ${leftPageNumber})`);
+    } else if (leftPageNumber === currentPageNumber) {
       leftPageData = data;
-      console.log(`📄 Left page is current page: ${leftPageId}`);
+      console.log(`📄 Left page is current page: ${currentPageNumber}`);
     }
     
     // 右ページのデータを読み込み
-    if (rightPageId !== currentPageId && fs.existsSync(rightJsonPath)) {
-      const rightRaw = fs.readFileSync(rightJsonPath, 'utf-8');
+    if (rightPageFile && rightPageNumber !== currentPageNumber) {
+      const rightRaw = fs.readFileSync(rightPageFile, 'utf-8');
       rightPageData = JSON.parse(rightRaw);
-      console.log(`📄 Right page loaded: ${rightPageId} (${rightPageData.title || 'Untitled'})`);
-    } else if (rightPageId === currentPageId) {
+      console.log(`📄 Right page loaded: ${rightPageData.title || 'Untitled'} (page number: ${rightPageNumber})`);
+    } else if (rightPageNumber === currentPageNumber) {
       rightPageData = data;
-      console.log(`📄 Right page is current page: ${rightPageId}`);
+      console.log(`📄 Right page is current page: ${currentPageNumber}`);
     }
     
     // nextPageDataを適切に設定（後方互換性のため）
-    if (currentPageId % 2 === 0) {
+    if (currentPageNumber % 2 === 0) {
       nextPageData = rightPageData;
     } else {
       nextPageData = leftPageData;
@@ -575,10 +595,17 @@ async function main() {
     
     if (!leftPageData || !rightPageData) {
       console.log(`⚠️ Missing page data - Left: ${!!leftPageData}, Right: ${!!rightPageData}`);
-      console.log(`🔍 Available files in directory:`);
-      const dir = path.dirname(json);
-      const files = fs.readdirSync(dir).filter(f => f.startsWith('content-'));
-      console.log(files.join(', '));
+      console.log(`🔍 Available files and their page numbers:`);
+      allFiles.forEach(file => {
+        try {
+          const filePath = path.join(dir, file);
+          const fileData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+          const filePageNumber = parseInt(fileData.pdf_page_number || fileData.id);
+          console.log(`  - ${file}: page number ${filePageNumber}`);
+        } catch (e) {
+          console.log(`  - ${file}: could not read`);
+        }
+      });
     }
   }
   

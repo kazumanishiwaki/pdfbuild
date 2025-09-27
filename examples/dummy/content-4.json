@@ -1,0 +1,9 @@
+{
+  "id": 4,
+  "slug": "page4",
+  "template": "heading-text",
+  "title": "ページ4（左ページ）",
+  "heading": "これは4ページ目です",
+  "content": "見開きの左ページとして表示されるはずです。偶数ページなので左側に配置されます。4:5の見開きをテストします。",
+  "pdf_page_number": 4
+}
